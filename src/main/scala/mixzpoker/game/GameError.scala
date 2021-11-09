@@ -12,4 +12,5 @@ object GameError {
   case object InvalidGameIdFormat extends GameError
   case object WrongGameType extends GameError
   case class GameBrokerError(ve: BrokerError) extends GameError
+  case class DecodeError(err: io.circe.Error) extends GameError
 }

@@ -10,7 +10,6 @@ import cats.effect.concurrent.Ref
 import mixzpoker.auth.{AuthApi, AuthUserRepository}
 import mixzpoker.user.{UserApi, UserRepository}
 import mixzpoker.game.poker.PokerApi
-import mixzpoker.game.{GameEvent, GameRepository}
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.lobby.{LobbyApi, LobbyRepository}
 
@@ -21,16 +20,15 @@ object HttpServer {
     for {
       counter <- Ref[F].of(0)
       userRepo <- UserRepository.inMemory
-      pokerGameRepo <- GameRepository.inMemory
       authUserRepo <- AuthUserRepository.inMemory
       lobbyRepo <- LobbyRepository.inMemory
-      broker <- Broker.fromQueues[F, GameEvent, String](32)
+      broker <- Broker.fromQueues[F](32)
 
       helloWorld = new HelloWorld(counter)
-      userApi = new UserApi(userRepo)
-      pokerApi = new PokerApi(pokerGameRepo)
       authApi = new AuthApi(authUserRepo, userRepo)
-      lobbyApi = new LobbyApi[F](lobbyRepo, pokerGameRepo)
+      userApi = new UserApi(userRepo)
+      pokerApi = new PokerApi(broker)
+      lobbyApi = new LobbyApi[F](lobbyRepo, broker)
 
       httpApp = (
         authApi.routes <+>

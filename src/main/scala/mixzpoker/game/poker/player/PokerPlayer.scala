@@ -1,51 +1,46 @@
 package mixzpoker.game.poker.player
 
-import cats.data.EitherT
-import cats.implicits._
-import cats.effect.Sync
-import cats.effect.concurrent.Ref
-
 import mixzpoker.domain.Token
-import mixzpoker.game.poker.game.PokerGameError
-import mixzpoker.game.poker.game.PokerGameError._
-import mixzpoker.user.User
+import mixzpoker.game.core.Hand
+import mixzpoker.game.poker.PokerError._
+import mixzpoker.user.UserId
 
 
-trait PokerPlayer[F[_]] {
-  def getUser: User
-  def getTokens: F[Token]
+case class PokerPlayer(userId: UserId, seat: Int, tokens: Token, hand: Hand, state: PokerPlayerState) {
+  def decreaseBalance(delta: Token): ErrOr[PokerPlayer] =
+    Either.cond(delta <= tokens, copy(tokens = tokens - delta), UserDoesNotHaveEnoughTokens)
 
-  def checkBalance(amount: Token): F[ErrOr[Unit]]
-  def checkBalanceEquals(amount: Token): F[ErrOr[Unit]]
-  def decreaseBalance(delta: Token): F[ErrOr[Unit]]
-  def increaseBalance(delta: Token): F[ErrOr[Unit]]
+  def increaseBalance(delta: Token): ErrOr[PokerPlayer] =
+    Right(copy(tokens = tokens + delta))
+
+  def checkBalanceEquals(amount: Token): ErrOr[Unit] =
+    Either.cond(tokens == amount, (), UserBalanceError(s"balance not equal $amount"))
+
+  def fold(): PokerPlayer =
+    copy(hand = Hand.empty, state = PokerPlayerState.FoldedPlayer)
+
+  def call(amount: Token): ErrOr[PokerPlayer] = for {
+    p <- decreaseBalance(amount)
+  } yield p
+
+  def raise(amount: Token): ErrOr[PokerPlayer] = for {
+    p <- decreaseBalance(amount)
+  } yield p
+
+  def allIn(amount: Token): ErrOr[PokerPlayer] = for {
+    p <- decreaseBalance(amount)
+  } yield p
 }
 
 
 object PokerPlayer {
-  def fromUser[F[_]: Sync](user: User): F[PokerPlayer[F]] = for {
-    tokens <- Ref.of(user.amount)
-  } yield new PokerPlayer[F] {
-    override def getUser: User = user
-
-    override def getTokens: F[Token] = tokens.get
-
-    override def checkBalance(amount: Token): F[ErrOr[Unit]] = for {
-      t <- getTokens
-    } yield Either.cond(amount <= t, (), UserDoesNotHaveEnoughTokens)
-
-    override def checkBalanceEquals(amount: Token): F[ErrOr[Unit]] = for {
-      t <- getTokens
-    } yield Either.cond(amount == t, (), UserBalanceError(s"balance not equal $amount"))
-
-    override def decreaseBalance(delta: Token): F[ErrOr[Unit]] = (for {
-      t <- EitherT.right[PokerGameError](getTokens)
-      _ <- EitherT.cond[F](t - delta >= 0, (), UserDoesNotHaveEnoughTokens)
-      _ <- EitherT.right[PokerGameError](tokens.update(_ - delta))
-    } yield ()).value
-
-    override def increaseBalance(delta: Token): F[ErrOr[Unit]] =
-      tokens.update(_ + delta).map(_ => ().asRight[PokerGameError])
-  }
+  def fromUser(userId: UserId, buyIn: Token, seat: Int): PokerPlayer =
+    PokerPlayer(
+      userId = userId,
+      seat = seat,
+      tokens = buyIn,
+      hand = Hand.empty,
+      state = PokerPlayerState.JoinedPlayer
+    )
 
 }

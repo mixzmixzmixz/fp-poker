@@ -1,6 +1,8 @@
 package mixzpoker.infrastructure.broker
 
-trait BrokerError
+import mixzpoker.AppError
+
+sealed trait BrokerError extends AppError
 
 object BrokerError {
   type ErrOr[A] = Either[BrokerError, A]

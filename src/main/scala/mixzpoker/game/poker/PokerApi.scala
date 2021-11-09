@@ -3,16 +3,16 @@ package mixzpoker.game.poker
 import cats.data.EitherT
 import cats.implicits._
 import cats.effect.{Concurrent, Sync}
+import mixzpoker.infrastructure.broker.Broker
 import org.http4s.{AuthedRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 //import org.http4s.circe._
 //import io.circe.syntax.EncoderOps
 
 import mixzpoker.user.User
-import mixzpoker.game.{GameId, GameRepository}
 
 
-class PokerApi[F[_]: Sync: Concurrent](gameRepository: GameRepository[F]) {
+class PokerApi[F[_]: Sync: Concurrent](broker: Broker[F]) {
   val dsl = new Http4sDsl[F]{}
   import dsl._
 
@@ -27,11 +27,5 @@ class PokerApi[F[_]: Sync: Concurrent](gameRepository: GameRepository[F]) {
 
   }
 
-  private def getGameState(gameId: String): F[Response[F]] = {
-    for {
-      id <- EitherT(GameId.fromString(gameId).pure[F])
-      game <- EitherT(gameRepository.getGame(id))
-      resp = Ok()
-    } yield resp
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+  private def getGameState(gameId: String): F[Response[F]] = ???
 }

@@ -44,7 +44,10 @@ lazy val root = (project in file("."))
 
       "ch.qos.logback"  %  "logback-classic"     % LogbackVersion,
 
-      "tf.tofu"         %% "tofu"                % TofuVersion,
+      "tf.tofu"         %% "tofu"                    % TofuVersion,
+      "tf.tofu"         %% "tofu-logging"            % TofuVersion,
+      "tf.tofu"         %% "tofu-logging-derivation" % TofuVersion,
+      "tf.tofu"         %% "tofu-kernel-ce2-interop" % TofuVersion,
 
       "org.scalatestplus" %% "scalatestplus-scalacheck" % scalaTestVersion % Test,
       "org.scalatestplus" %% "selenium-2-45"            % scalaTestVersion % Test

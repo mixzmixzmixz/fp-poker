@@ -1,16 +1,18 @@
 package mixzpoker.game.poker
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Sync}
+import cats.effect.{ConcurrentEffect}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import io.circe.parser.decode
+import tofu.logging.Logging
+import tofu.syntax.logging._
+
 import mixzpoker.game.{GameError, GameId}
 import mixzpoker.game.GameError._
 import mixzpoker.game.poker.game.{PokerGame, PokerGameEvent}
 import mixzpoker.infrastructure.broker.Broker
 import PokerEvent._
-import cats.ApplicativeError
 
 
 trait PokerApp[F[_]] {
@@ -20,14 +22,14 @@ trait PokerApp[F[_]] {
 }
 
 object PokerApp {
-  def of[F[_]: ConcurrentEffect](broker: Broker[F]): F[PokerApp[F]] = {
+  def of[F[_]: ConcurrentEffect: Logging](broker: Broker[F]): F[PokerApp[F]] = {
     for {
 //      queue <- broker.getQueue("poker-game-topic").leftMap(GameBrokerError)
       pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
     } yield new PokerApp[F] {
 
       override def run: F[Unit] = for {
-        _ <- Sync[F].delay(println("run poker app!"))
+        _ <- info"Run poker App!"
         eithQ <- broker.getQueue("poker-game-topic").value
         _ <- eithQ match {
           case Left(err) => ().pure[F] // todo raiseError here

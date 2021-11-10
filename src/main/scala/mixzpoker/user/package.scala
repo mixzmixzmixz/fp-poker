@@ -1,5 +1,7 @@
 package mixzpoker
 
+import io.circe.{Decoder, Encoder}
+
 import scala.util.Random
 import mixzpoker.user.UserError._
 
@@ -15,6 +17,12 @@ package object user {
     def fromString(str: String): Option[UserId] = for {
       x <- str.toIntOption
     } yield UserId(x)
+
+    implicit val encoderUserId: Encoder[UserId] =
+      Encoder[String].contramap(a => a.toString)
+
+    implicit val decoderUserId: Decoder[UserId] =
+      Decoder[String].emap(s => UserId.fromString(s).toRight("wrong userId"))
   }
 
   case class UserName(value: String) extends AnyVal

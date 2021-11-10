@@ -5,6 +5,7 @@ val catsEffectVersion = "2.2.0"
 val refinedVersion = "0.9.18"
 val enumeratumVersion = "1.6.1"
 val pprintVersion = "0.5.6"
+val TofuVersion = "0.10.6"
 
 val LogbackVersion = "1.2.3"
 val scalaTestVersion = "3.1.0.0-RC2"
@@ -42,6 +43,8 @@ lazy val root = (project in file("."))
       "com.lihaoyi"     %% "pprint"              % pprintVersion,
 
       "ch.qos.logback"  %  "logback-classic"     % LogbackVersion,
+
+      "tf.tofu"         %% "tofu"                % TofuVersion,
 
       "org.scalatestplus" %% "scalatestplus-scalacheck" % scalaTestVersion % Test,
       "org.scalatestplus" %% "selenium-2-45"            % scalaTestVersion % Test

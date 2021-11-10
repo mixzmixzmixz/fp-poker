@@ -1,11 +1,13 @@
 package mixzpoker.game.poker.player
 
+import io.circe.generic.JsonCodec
 import mixzpoker.domain.Token
 import mixzpoker.game.core.Hand
 import mixzpoker.game.poker.PokerError._
 import mixzpoker.user.UserId
 
 
+@JsonCodec
 case class PokerPlayer(userId: UserId, seat: Int, tokens: Token, hand: Hand, state: PokerPlayerState) {
   def decreaseBalance(delta: Token): ErrOr[PokerPlayer] =
     Either.cond(delta <= tokens, copy(tokens = tokens - delta), UserDoesNotHaveEnoughTokens)
@@ -17,7 +19,7 @@ case class PokerPlayer(userId: UserId, seat: Int, tokens: Token, hand: Hand, sta
     Either.cond(tokens == amount, (), UserBalanceError(s"balance not equal $amount"))
 
   def fold(): PokerPlayer =
-    copy(hand = Hand.empty, state = PokerPlayerState.FoldedPlayer)
+    copy(hand = Hand.empty, state = PokerPlayerState.Folded)
 
   def call(amount: Token): ErrOr[PokerPlayer] = for {
     p <- decreaseBalance(amount)
@@ -40,7 +42,7 @@ object PokerPlayer {
       seat = seat,
       tokens = buyIn,
       hand = Hand.empty,
-      state = PokerPlayerState.JoinedPlayer
+      state = PokerPlayerState.Joined
     )
 
 }

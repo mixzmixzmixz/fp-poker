@@ -23,6 +23,7 @@ object Broker {
 
   def fromQueues[F[_]: Concurrent](bound: Int): F[Broker[F]] = for {
     store <- Ref.of(Map.empty[String, Queue[F, String]])
+
   } yield new Broker[F] {
     override def getMessage(id: String): EitherT[F, BrokerError, String] = for {
         q <- EitherT(store.get.map(_.get(id).toRight[BrokerError](NoSuchTopic)))

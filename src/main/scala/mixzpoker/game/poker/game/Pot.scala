@@ -1,5 +1,6 @@
 package mixzpoker.game.poker.game
 
+import io.circe.{Encoder, Json}
 import mixzpoker.domain.Token
 import mixzpoker.game.poker.PokerError
 import mixzpoker.game.poker.PokerError._
@@ -77,4 +78,9 @@ object Pot {
       playerBetsThisRound = Map.empty,
       playerBets = Map.empty
     )
+
+  implicit val potEncoder: Encoder[Pot] = (a: Pot) => Json.obj(
+    "betToCall" -> Json.fromInt(a.betToCall),
+    "total" -> Json.fromInt(a.playerBets.values.sum)
+  )
 }

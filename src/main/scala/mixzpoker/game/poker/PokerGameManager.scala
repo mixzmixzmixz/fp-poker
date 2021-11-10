@@ -22,10 +22,9 @@ trait PokerGameManager[F[_]] {
 
 object PokerGameManager {
   def create[F[_]: Sync](
-    settings: PokerSettings, users: List[(UserId, Token)], broker: Broker[F]
+    gameId: GameId, settings: PokerSettings, users: List[(UserId, Token)], broker: Broker[F]
   ): EitherT[F, GameError, PokerGameManager[F]] =
     for {
-      gameId <- EitherT.right[GameError](GameId.fromRandom)
       _game <- EitherT.fromEither[F](PokerGame.create(gameId, settings, users))
       gameRef <- EitherT.right[GameError](Ref.of[F, PokerGame](_game))
     } yield new PokerGameManager[F] {

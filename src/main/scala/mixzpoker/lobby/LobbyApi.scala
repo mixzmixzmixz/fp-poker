@@ -81,7 +81,7 @@ class LobbyApi[F[_]: Sync: Concurrent](
   }.leftMap { err => Ok(err.toString) }.merge.flatten
 
   private def startPokerGame(lobby: Lobby): EitherT[F, AppError, GameId] = for {
-    queue <- broker.getQueue("gamesTopic")
+    queue <- broker.getQueue("poker-game-topic")
     gameId <- EitherT.right(GameId.fromRandom)
     eventId <- EitherT.right(EventId.fromRandom)
     event = CreateGameEvent(

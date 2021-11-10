@@ -1,5 +1,7 @@
 package mixzpoker.game.core
 
+import io.circe.{Decoder, Encoder}
+
 sealed trait Rank
 
 object Rank {
@@ -37,4 +39,39 @@ object Rank {
 
   implicit def orderingByRank[A <: Rank]: Ordering[A] =
     Ordering.by(r => toInt(r))
+
+  implicit val rankEncoder: Encoder[Rank] = Encoder[String].contramap {
+    case Ace => "ace"
+    case King => "king"
+    case Queen => "queen"
+    case Jack => "jack"
+    case Ten => "ten"
+    case Nine => "nine"
+    case Eight => "eight"
+    case Seven => "seven"
+    case Six => "six"
+    case Five => "five"
+    case Four => "four"
+    case Three => "three"
+    case Two => "two"
+  }
+
+  implicit val rankDecoder: Decoder[Rank] = Decoder[String].emap {
+    case "Ace" => Right(Ace)
+    case "King" => Right(King)
+    case "Queen" => Right(Queen)
+    case "Jack" => Right(Jack)
+    case "Ten" => Right(Ten)
+    case "Nine" => Right(Nine)
+    case "Eight" => Right(Eight)
+    case "Seven" => Right(Seven)
+    case "Six" => Right(Six)
+    case "Five" => Right(Five)
+    case "Four" => Right(Four)
+    case "Three" => Right(Three)
+    case "Two" => Right(Two)
+    case _ => Left("wrong rank")
+
+  }
+
 }

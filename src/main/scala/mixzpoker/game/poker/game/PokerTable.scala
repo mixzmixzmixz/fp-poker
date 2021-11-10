@@ -1,11 +1,13 @@
 package mixzpoker.game.poker.game
 
+import io.circe.generic.JsonCodec
 import mixzpoker.game.poker.PokerError
 import mixzpoker.game.poker.PokerError._
 import mixzpoker.game.poker.player.PokerPlayer
 import mixzpoker.user.UserId
 
 
+@JsonCodec
 case class PokerTable(size: Int, dealerSeat: Int, playerToActSeat: Int, players: List[PokerPlayer]) {
   def playersCount: Int = players.length
 

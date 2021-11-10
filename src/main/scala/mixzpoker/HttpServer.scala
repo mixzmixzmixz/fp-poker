@@ -9,7 +9,7 @@ import cats.effect.{ConcurrentEffect, ExitCode, Timer}
 import cats.effect.concurrent.Ref
 import mixzpoker.auth.{AuthApi, AuthUserRepository}
 import mixzpoker.user.{UserApi, UserRepository}
-import mixzpoker.game.poker.PokerApi
+import mixzpoker.game.poker.{PokerApi, PokerApp}
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.lobby.{LobbyApi, LobbyRepository}
 
@@ -23,11 +23,15 @@ object HttpServer {
       authUserRepo <- AuthUserRepository.inMemory
       lobbyRepo <- LobbyRepository.inMemory
       broker <- Broker.fromQueues[F](32)
+      _ <- broker.createTopic("poker-game-topic").value.map(_.fold(_.raiseError, _ => ()))
+      pokerApp <- PokerApp.of(broker)
+
+      fiber <- ConcurrentEffect[F].start(pokerApp.run)
 
       helloWorld = new HelloWorld(counter)
       authApi = new AuthApi(authUserRepo, userRepo)
       userApi = new UserApi(userRepo)
-      pokerApi = new PokerApi(broker)
+      pokerApi = new PokerApi(broker, pokerApp)
       lobbyApi = new LobbyApi[F](lobbyRepo, broker)
 
       httpApp = (

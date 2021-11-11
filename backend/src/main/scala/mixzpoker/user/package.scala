@@ -12,7 +12,7 @@ package object user {
   }
 
   object UserId {
-    def fromRandom: UserId = UserId(Random.nextInt())
+    def fromRandom: UserId = UserId(Random.nextInt(100000) + 1)
 
     def fromString(str: String): Option[UserId] = for {
       x <- str.toIntOption

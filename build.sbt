@@ -1,20 +1,14 @@
-val http4sVersion = "0.21.11"
-val circeVersion = "0.13.0"
-val catsVersion = "2.2.0"
-val catsEffectVersion = "2.2.0"
-val refinedVersion = "0.9.18"
-val enumeratumVersion = "1.6.1"
-val pprintVersion = "0.5.6"
-val TofuVersion = "0.10.6"
+ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots") // for mdoc (see also plugins.sbt)
+ThisBuild / scalaVersion := Versions.Scala_2_13
 
-val LogbackVersion = "1.2.3"
-val scalaTestVersion = "3.1.0.0-RC2"
+import Versions._
 
 //addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.1" cross CrossVersion.full)
 
-lazy val root = (project in file("."))
+lazy val backend = project
+  .in(file("backend"))
   .settings(
-    name := "MixzPoker",
+    name := "MixzPokerBackend",
     version := "0.0.1-SNAPSHOT",
     scalaVersion := "2.13.6",
     scalacOptions += "-Wunused:imports",
@@ -51,5 +45,34 @@ lazy val root = (project in file("."))
 
       "org.scalatestplus" %% "scalatestplus-scalacheck" % scalaTestVersion % Test,
       "org.scalatestplus" %% "selenium-2-45"            % scalaTestVersion % Test
+    )
+  )
+
+
+lazy val frontend = project
+  .in(file("frontend"))
+  .withId("frontend")
+  .enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin)
+  .settings(
+    name := "MixzPokerFrontend",
+    version := "0.0.1-SNAPSHOT",
+    scalaVersion := "2.13.6",
+    scalaJSLinkerConfig ~= {_.withModuleKind(ModuleKind.CommonJSModule)},
+    // Producing source maps throws warnings on material web components complaining about missing .ts files. Not sure why.
+    scalaJSLinkerConfig ~= {_.withSourceMap(false)},
+    scalaJSUseMainModuleInitializer := true,
+    (Compile / npmDependencies) ++= Seq(
+      "@material/mwc-button" -> "0.18.0",
+      "@material/mwc-linear-progress" -> "0.18.0",
+      "@material/mwc-slider" -> "0.18.0"
+    ),
+    scalacOptions ~= { options: Seq[String] =>
+      options.filterNot { o =>
+        o.startsWith("-Wvalue-discard") || o.startsWith("-Ywarn-value-discard") || o.startsWith("-Ywarn-unused") || o.startsWith("-Wunused")
+      }
+    },
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom" % ScalaJsDom,
+      "com.raquo"    %%% "laminar"     % LaminarVersion
     )
   )

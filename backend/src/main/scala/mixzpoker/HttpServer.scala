@@ -31,7 +31,6 @@ object HttpServer {
       pokerApp <- PokerApp.of(broker)
 
       fiber <- ConcurrentEffect[F].start(pokerApp.run)
-
       helloWorld = new HelloWorld(counter)
       authApi = new AuthApi(authUserRepo, userRepo)
       userApi = new UserApi(userRepo)

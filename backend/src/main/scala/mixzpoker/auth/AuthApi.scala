@@ -19,7 +19,6 @@ class AuthApi[F[_]: Sync: Concurrent](authUserRepository: AuthUserRepository[F],
   import dsl._
 
   val authUser: Kleisli[F, Request[F], ErrOr[User]] = Kleisli({ request =>
-    request.headers.foreach(println).pure[F]
     val token = for {
       header <- request.headers.get(CaseInsensitiveString("Authorization")).toRight(NoAuthorizationHeader)
       authToken <- AuthToken.fromString(header.value)

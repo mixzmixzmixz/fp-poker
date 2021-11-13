@@ -23,7 +23,6 @@ lazy val backend = project
       "org.http4s"      %% "http4s-dsl"          % http4sVersion,
 
       "io.circe"        %% "circe-generic"       % circeVersion,
-      "io.circe"        %% "circe-generic"       % circeVersion,
       "io.circe"        %% "circe-parser"        % circeVersion,
       "io.circe"        %% "circe-refined"       % circeVersion,
 
@@ -72,7 +71,15 @@ lazy val frontend = project
       }
     },
     libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-dom" % ScalaJsDom,
-      "com.raquo"    %%% "laminar"     % LaminarVersion
+      "org.scala-js" %%% "scalajs-dom"   % ScalaJsDom,
+      "com.raquo"    %%% "laminar"       % LaminarVersion,
+      "com.raquo"    %%% "waypoint"      % "0.5.0",
+      "io.circe"     %%% "circe-generic" % circeVersion,
+      "io.circe"     %%% "circe-parser"  % circeVersion,
+      "io.laminext"  %%% "core"          % LaminarVersion,
+      "io.laminext"  %%% "fetch"         % LaminarVersion,
+      "io.laminext"  %%% "websocket"     % LaminarVersion,
+      "io.laminext"  %%% "fetch-circe"   % LaminarVersion,
+      "com.lihaoyi"  %%% "upickle"       % "1.3.8"
     )
   )

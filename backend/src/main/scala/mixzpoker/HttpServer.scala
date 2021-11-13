@@ -12,7 +12,11 @@ import mixzpoker.user.{UserApi, UserRepository}
 import mixzpoker.game.poker.{PokerApi, PokerApp}
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.lobby.{LobbyApi, LobbyRepository}
+import org.http4s.server.Router
+import org.http4s.server.middleware.{CORS, CORSConfig}
 import tofu.logging.Logging
+
+import scala.concurrent.duration.DurationInt
 
 
 object HttpServer {
@@ -37,14 +41,23 @@ object HttpServer {
       pokerApi = new PokerApi(broker, pokerApp)
       lobbyApi = new LobbyApi[F](lobbyRepo, broker)
 
-      httpApp = (
+      services = (
         authApi.routes <+>
-        helloWorld.routes <+>
-        authApi.middleware(userApi.authedRoutes) <+>
-        authApi.middleware(pokerApi.authedRoutes) <+>
-        authApi.middleware(authApi.authedRoutes) <+>
-        authApi.middleware(lobbyApi.authedRoutes)
-      ).orNotFound
+          helloWorld.routes <+>
+          authApi.middleware(userApi.authedRoutes) <+>
+          authApi.middleware(pokerApi.authedRoutes) <+>
+          authApi.middleware(authApi.authedRoutes) <+>
+          authApi.middleware(lobbyApi.authedRoutes)
+        )
+      httpApp = Router("/api" -> CORS(services,
+        config = CORSConfig(
+          anyOrigin = true,
+          anyMethod = false,
+          allowedMethods = Some(Set("GET", "POST")),
+          allowCredentials = true,
+          maxAge = 1.day.toSeconds
+        )
+      )).orNotFound
 
     } yield for {
       _ <- BlazeServerBuilder[F](global)

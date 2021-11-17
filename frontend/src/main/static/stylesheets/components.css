@@ -186,3 +186,63 @@
     min-height: 400px;
     overflow: hidden;
 }
+
+.mixz-main-nav {
+    letter-spacing: 0;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+    transition: background .36s cubic-bezier(.32,.08,.24,1),height .56s cubic-bezier(.52,.16,.24,1);
+    overflow: hidden;
+
+    align-items: center;
+    background: inherit;
+    display: flex;
+    justify-content: space-between;
+    min-height: inherit;
+    position: relative;
+    padding: 0 12px;
+    height: 89px;
+    background-color: #f7f7f7;
+}
+
+.logo {
+    -webkit-align-items: center;
+    align-items: center;
+    color: inherit;
+    display: -webkit-flex;
+    display: flex;
+    height: 3.75rem;
+    min-height: 3.75rem;
+    padding: 0 12px 0 0;
+    position: relative;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.mixz-nav-container {
+    display: flex;
+    align-items: center;
+}
+
+.mixz-main-nav ul {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items: center;
+}
+
+.mixz-main-nav ul li {
+    margin-right: 16px;
+}
+
+.mixz-nav-list {
+
+}
+
+.mixz-nav-elem {
+    color: #343c44;
+    font-size: 16px;
+    font-weight: 400;
+    position: relative;
+}

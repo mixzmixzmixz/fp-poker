@@ -13,6 +13,15 @@ export default ({ mode }) => {
       alias: {
         'stylesheets': resolve(__dirname, './frontend/src/main/static/stylesheets'),
       }
+    },
+    server: {
+      port: 3000,
+      cors: {
+        "origin": "*",
+        "methods": "GET,HEAD,POST,DELETE",
+        "preflightContinue": false,
+        "optionsSuccessStatus": 204
+      }
     }
   }
 }

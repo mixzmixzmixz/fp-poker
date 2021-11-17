@@ -9,17 +9,10 @@ sealed trait AppState
 object AppState {
   case object AppNotLoaded extends AppState
   case object Unauthorized extends AppState
-  case class AppContext(
-    name: String,
-    balance: Int,
-    token: String = ""
-  ) extends AppState
+  case class AppUserInfo(id: String, name: String, tokens: Int) extends AppState
 
-  def notLoaded: AppState = AppNotLoaded
-
-
-  object AppContext {
-    implicit val appUserDecoder: Decoder[AppContext] = deriveDecoder
+  object AppUserInfo {
+    implicit val appUserDecoder: Decoder[AppUserInfo] = deriveDecoder
   }
 }
 

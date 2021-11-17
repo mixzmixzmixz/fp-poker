@@ -5,7 +5,6 @@ import com.raquo.laminar.api.L._
 object Panels {
   def SimplePanel(mods: Mod[HtmlElement]*): HtmlElement = {
     div(
-
       cls("mixz-panel-simple"),
       mods
     )

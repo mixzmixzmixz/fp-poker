@@ -41,14 +41,16 @@ object HttpServer {
       pokerApi = new PokerApi(broker, pokerApp)
       lobbyApi = new LobbyApi[F](lobbyRepo, broker)
 
-      services = (
+      services =
         authApi.routes <+>
-          helloWorld.routes <+>
-          authApi.middleware(userApi.authedRoutes) <+>
-          authApi.middleware(pokerApi.authedRoutes) <+>
-          authApi.middleware(authApi.authedRoutes) <+>
-          authApi.middleware(lobbyApi.authedRoutes)
+        helloWorld.routes <+>
+        authApi.middleware(
+          userApi.authedRoutes <+>
+          pokerApi.authedRoutes <+>
+          authApi.authedRoutes <+>
+          lobbyApi.authedRoutes
         )
+
       httpApp = Router("/api" -> CORS(services,
         config = CORSConfig(
           anyOrigin = true,

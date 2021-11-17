@@ -1,4 +1,5 @@
 ThisBuild / resolvers += Resolver.sonatypeRepo("snapshots") // for mdoc (see also plugins.sbt)
+//ThisBuild / resolvers += Resolver.githubPackages("uosis")
 ThisBuild / scalaVersion := Versions.Scala_2_13
 
 import Versions._
@@ -61,9 +62,22 @@ lazy val frontend = project
     scalaJSLinkerConfig ~= {_.withSourceMap(false)},
     scalaJSUseMainModuleInitializer := true,
     (Compile / npmDependencies) ++= Seq(
-      "@material/mwc-button" -> "0.18.0",
-      "@material/mwc-linear-progress" -> "0.18.0",
-      "@material/mwc-slider" -> "0.18.0"
+      "@material/mwc-button" -> MwcVersion,
+      "@material/mwc-linear-progress" -> MwcVersion,
+      "@material/mwc-slider" -> MwcVersion,
+      "@material/mwc-top-app-bar-fixed" -> MwcVersion,
+      "@material/mwc-top-app-bar" -> MwcVersion,
+      "@material/mwc-menu" -> MwcVersion,
+      "@material/mwc-list" -> MwcVersion,
+      "@material/mwc-icon-button" -> MwcVersion,
+      "@material/mwc-select" -> MwcVersion,
+      "@material/mwc-tab" -> MwcVersion,
+      "@material/mwc-tab-bar" -> MwcVersion,
+      "@material/mwc-icon" -> MwcVersion,
+      "@material/mwc-fab" -> MwcVersion,
+      "@material/mwc-snackbar" -> MwcVersion,
+      "@material/mwc-formfield" -> MwcVersion,
+      "@material/mwc-textfield" -> MwcVersion,
     ),
     scalacOptions ~= { options: Seq[String] =>
       options.filterNot { o =>
@@ -80,6 +94,7 @@ lazy val frontend = project
       "io.laminext"  %%% "fetch"         % LaminarVersion,
       "io.laminext"  %%% "websocket"     % LaminarVersion,
       "io.laminext"  %%% "fetch-circe"   % LaminarVersion,
-      "com.lihaoyi"  %%% "upickle"       % "1.3.8"
+      "com.lihaoyi"  %%% "upickle"       % "1.3.8",
+//      "com.github.uosis" %%% "laminar-web-components-material" % "0.1.0"
     )
   )

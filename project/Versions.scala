@@ -18,6 +18,7 @@ object Versions {
   val ScalaDomTypes = "0.15.0"
   val Airstream = "0.14.0"
   val LaminarVersion = "0.14.0"
+  val MwcVersion = "0.23.0"
   // Testing
   val ScalaTest = "3.2.10"
   val JsDom = "16.4.0"

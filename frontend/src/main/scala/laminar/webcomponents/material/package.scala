@@ -3882,6 +3882,7 @@ package laminar.webcomponents.material {
     }
 
 
+    val `anchor` = new ReactiveProp("anchor", AsIsCodec[dom.html.Element])
 
     /** Whether the menu should open and display.
      *

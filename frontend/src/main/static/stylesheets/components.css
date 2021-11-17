@@ -155,9 +155,9 @@
     position: relative;
     display: flex;
     flex: 0 0 auto;
-    flex-direction: column;
-    height: auto;
-    width: auto;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
     box-sizing: border-box;
     -webkit-user-drag: none;
     overflow: visible;
@@ -187,25 +187,6 @@
     overflow: hidden;
 }
 
-.mixz-main-nav {
-    letter-spacing: 0;
-    width: 100%;
-    top: 0;
-    z-index: 1000;
-    transition: background .36s cubic-bezier(.32,.08,.24,1),height .56s cubic-bezier(.52,.16,.24,1);
-    overflow: hidden;
-
-    align-items: center;
-    background: inherit;
-    display: flex;
-    justify-content: space-between;
-    min-height: inherit;
-    position: relative;
-    padding: 0 12px;
-    height: 89px;
-    background-color: #f7f7f7;
-}
-
 .logo {
     -webkit-align-items: center;
     align-items: center;
@@ -220,29 +201,21 @@
     cursor: pointer;
 }
 
-.mixz-nav-container {
+.mixz-left-panel {
+    margin-top: 0;
+    margin-left: 0;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-content: flex-start;
+    width: auto;
+    background: #8e87e2;
 }
 
-.mixz-main-nav ul {
-    display: -webkit-flex;
-    display: flex;
-    -webkit-align-items: center;
-    align-items: center;
-}
-
-.mixz-main-nav ul li {
-    margin-right: 16px;
-}
-
-.mixz-nav-list {
-
-}
-
-.mixz-nav-elem {
-    color: #343c44;
-    font-size: 16px;
-    font-weight: 400;
-    position: relative;
+.mixz-panel-text {
+    font-family: "Open Sauce One",sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    word-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    color: #fff;
 }

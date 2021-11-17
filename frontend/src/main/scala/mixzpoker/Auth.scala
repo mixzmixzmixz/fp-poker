@@ -25,7 +25,7 @@ object Auth {
     def signInRequest: EventStream[String] = Fetch
       .post(
         url = s"${Config.rootEndpoint}/auth/sign-in",
-        body = SignInDto(loginVar.now(), passwordVar.now()).asJson
+        body = SignInDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase).asJson
       )
       .text.recoverToTry
       .map(_.fold(_ => "", resp => {
@@ -47,7 +47,7 @@ object Auth {
 
             List(
               $token.filterNot(_ == "") --> storedAuthToken.setObserver,
-              $token.filterNot(_ == "") --> (_ => router.pushState(Page.MainPage))
+              $token.filterNot(_ == "") --> (_ => router.pushState(Page.RedirectPage))
             )
           }),
           SimpleButton("Sign Up", navigateTo(Page.SignUpPage)),
@@ -63,7 +63,7 @@ object Auth {
     def signUpRequest: EventStream[String] = Fetch
       .post(
         url = s"${Config.rootEndpoint}/auth/sign-up",
-        body = SignUpDto(loginVar.now(), passwordVar.now()).asJson
+        body = SignUpDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase).asJson
       )
       .text.recoverToTry
       .map(_.fold(_ => "", resp => {
@@ -85,7 +85,7 @@ object Auth {
 
             List(
               $token.filterNot(_ == "") --> storedAuthToken.setObserver,
-              $token.filterNot(_ == "") --> (_ => router.pushState(Page.MainPage))
+              $token.filterNot(_ == "") --> (_ => router.pushState(Page.RedirectPage))
             )
           }),
           SimpleButton("Sign In", navigateTo(Page.SignInPage))

@@ -31,7 +31,7 @@ object HttpServer {
       authUserRepo <- AuthUserRepository.inMemory
       lobbyRepo <- LobbyRepository.inMemory
       broker <- Broker.fromQueues[F](32)
-      _ <- broker.createTopic("poker-game-topic").value.map(_.fold(_.raiseError, _ => ()))
+      _ <- broker.createTopic("poker-game-topic")
       pokerApp <- PokerApp.of(broker)
 
       fiber <- ConcurrentEffect[F].start(pokerApp.run)

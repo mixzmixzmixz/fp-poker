@@ -16,43 +16,6 @@
     padding: 15px;
 }
 
-.mixz-btn-simple {
-    display: flex;
-    flex: 0 0 auto;
-    align-self: flex-start;
-    /* align-self: flex-start; */
-    font: normal 11px/16px tahoma, arial, verdana, sans-serif;
-    padding: 3px 6px 3px 6px;
-    border-radius: 2px;
-    border: 1px solid #b5b8c8;
-    background-image: none;
-    background-color: #f8f8f8;
-    background-image: -webkit-gradient(linear,50% 0,50% 100%,color-stop(0%,#fff),color-stop(100%,#eee));
-    background-image: -webkit-linear-gradient(top,#fff,#eee);
-    background-image: -moz-linear-gradient(top,#fff,#eee);
-    background-image: -o-linear-gradient(top,#fff,#eee);
-    background-image: -ms-linear-gradient(top,#fff,#eee);
-    background-image: linear-gradient(top,#fff,#eee);
-    outline: none;
-    cursor: pointer;
-    margin-bottom: 5px;
-    box-sizing: border-box;
-    margin: 0 10px;
-
-    flex: 1 1 auto;
-    text-align: center;
-    white-space: pre-wrap;
-    overflow: hidden;
-    font: normal 11px/16px Tahoma, Ubuntu, sans-serif;
-    font-size: 13px;
-    line-height: 36px;
-    font-weight: 600;
-    color: #383b42;
-    display: block;
-    cursor: pointer;
-    -webkit-user-select: none;
-}
-
 .mixz-container-simple {
     position: relative;
     display: flex;
@@ -143,9 +106,6 @@
     align-items: center;
     justify-content: center;
     height: 40px;
-}
-
-.auth-head-title {
     color: #e4e4e4;
     font-size: 16px;
     font-weight: 700;
@@ -182,8 +142,8 @@
     background-color: #383b42;
     background: linear-gradient(125deg, #3d4148, #30333a);
     box-shadow: 0 0 15px 3px rgba(255,255,255,0.1);
-    width: 360px;
-    min-height: 400px;
+    width: 500px;
+    height: 600px;
     overflow: hidden;
 }
 

@@ -29,11 +29,8 @@ object PokerApp {
 
       override def run: F[Unit] = for {
         _ <- info"Run poker App!"
-        eithQ <- broker.getQueue("poker-game-topic").value
-        _ <- eithQ match {
-          case Left(err) => error"${err.toString}" // todo raiseError here
-          case Right(queue) => queue.dequeue.evalMap(processMessage).compile.drain
-        }
+        q <- broker.getQueue("poker-game-topic")
+        _ <- q.dequeue.evalMap(processMessage).compile.drain
       } yield ()
 
       override def processMessage(message: String): F[Unit] = {

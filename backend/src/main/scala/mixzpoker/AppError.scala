@@ -1,6 +1,6 @@
 package mixzpoker
 
-trait AppError
+trait AppError extends Exception
 
 object AppError {
   type ErrOr[A] = Either[AppError, A]

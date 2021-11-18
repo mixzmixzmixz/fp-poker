@@ -5,13 +5,13 @@ import upickle.default._
 sealed trait Page
 
 object Page {
-  case object SignInPage extends Page
-  case object SignUpPage extends Page
-  case object RedirectPage extends Page
+  case object SignIn extends Page
+  case object SignUp extends Page
+  case object Redirect extends Page
 
   sealed trait AppPage extends Page
-  case object LobbiesPage extends AppPage
-  case object GamesPage extends AppPage
+  case object Lobbies extends AppPage
+  case object Games extends AppPage
 
   implicit val rwAppPage: ReadWriter[AppPage] = macroRW
   implicit val rwPage: ReadWriter[Page] = macroRW

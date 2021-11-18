@@ -2,13 +2,12 @@ package mixzpoker.lobby
 
 
 import cats.implicits._
-import cats.data.EitherT
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Sync
 import org.http4s.{AuthedRoutes, Request, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
 import io.circe.syntax._
-import mixzpoker.AppError
+
 import mixzpoker.game.poker.PokerSettings
 import mixzpoker.game.poker.PokerEvent.CreateGameEvent
 import mixzpoker.game.{EventId, GameId, GameType}
@@ -16,13 +15,16 @@ import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.user.User
 
 
-class LobbyApi[F[_]: Sync: Concurrent](
+class LobbyApi[F[_]: Sync](
   lobbyRepository: LobbyRepository[F], broker: Broker[F]
 ) {
   val dsl: Http4sDsl[F] = new Http4sDsl[F]{}
   import dsl._
 
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {
+
+    case GET -> Root / "lobby" as user => getLobbies(user)
+
     case GET -> Root / "lobby" / name as user => getLobby(name)
 
     case req @ POST -> Root / "lobby" / "create" as user =>  createLobby(req.req, user)
@@ -34,63 +36,78 @@ class LobbyApi[F[_]: Sync: Concurrent](
     case req @ POST -> Root / "lobby" / name / "start" as user => startGame(req.req, name, user)
   }
 
+  private def getLobbies(user: User): F[Response[F]] = {
+    //todo mb filter lobbies by User rights or smth
+    // todo filter and pagination using query params
+    for {
+      lobbies <- lobbyRepository.getLobbiesList()
+      resp <- Ok(lobbies.asJson)
+    } yield resp
+  }
+
   private def getLobby(name: String): F[Response[F]] = {
     for {
-      lobbyName <- EitherT.fromEither[F](LobbyName.fromString(name))
+      lobbyName <- LobbyName.fromString(name).liftTo[F]
       lobby <- lobbyRepository.getLobby(lobbyName)
-    } yield Ok(lobby.asJson)
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      resp <- Ok(lobby.asJson)
+    } yield resp
+    //todo add handling erros
+  }
 
   private def createLobby(req: Request[F], user: User): F[Response[F]] = {
     for {
-      request <- EitherT.right(req.decodeJson[LobbyDto.CreateLobbyRequest])
-      lobby <- EitherT.fromEither[F](Lobby.of(request.name, user, request.gameType))
+      request <- req.decodeJson[LobbyDto.CreateLobbyRequest]
+      lobby <- Lobby.of(request.name, user, request.gameType).liftTo[F]
       _ <- lobbyRepository.checkLobbyAlreadyExist(lobby.name)
       _ <- lobbyRepository.saveLobby(lobby)
-    } yield Created()
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      resp <- Created()
+    } yield resp
+  }
 
   private def joinLobby(req: Request[F], name: String, user: User): F[Response[F]] = {
     for {
-      request <- EitherT.right(req.decodeJson[LobbyDto.JoinLobbyRequest])
-      lobbyName <- EitherT.fromEither[F](LobbyName.fromString(name))
+      request <- req.decodeJson[LobbyDto.JoinLobbyRequest]
+      lobbyName <- LobbyName.fromString(name).liftTo[F]
       lobby <- lobbyRepository.getLobby(lobbyName)
-      lobby2 <- EitherT.fromEither[F](lobby.joinPlayer(user, request.buyIn))
+      lobby2 <- lobby.joinPlayer(user, request.buyIn).liftTo[F]
       _ <- lobbyRepository.saveLobby(lobby2)
-    } yield Ok()
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      resp <- Ok()
+    } yield resp
+  }
 
   private def leaveLobby(req: Request[F], name: String, user: User): F[Response[F]] = {
     for {
-      lobbyName <- EitherT.fromEither[F](LobbyName.fromString(name))
+      lobbyName <- LobbyName.fromString(name).liftTo[F]
       lobby <- lobbyRepository.getLobby(lobbyName)
-      lobby2 <- EitherT.fromEither[F](lobby.leavePlayer(user))
+      lobby2 <- lobby.leavePlayer(user).liftTo[F]
       _ <- lobbyRepository.saveLobby(lobby2)
-    } yield Ok()
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      resp <- Ok()
+    } yield resp
+  }
 
   private def startGame(req: Request[F], name: String, user: User): F[Response[F]] = {
     for {
-      lobbyName <- EitherT.fromEither[F](LobbyName.fromString(name))
+      lobbyName <- LobbyName.fromString(name).liftTo[F]
       lobby <- lobbyRepository.getLobby(lobbyName)
-      _ <- EitherT.fromEither[F](lobby.checkUserIsOwner(user))
+      _ <- lobby.checkUserIsOwner(user).liftTo[F]
       gameId <- lobby.gameType match {
         case GameType.Poker => startPokerGame(lobby)
       }
-    } yield Ok(LobbyDto.CreateGameResponse(gameId.toString).asJson)
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      resp <- Ok(LobbyDto.CreateGameResponse(gameId.toString).asJson)
+    } yield resp
+  }
 
-  private def startPokerGame(lobby: Lobby): EitherT[F, AppError, GameId] = for {
+  private def startPokerGame(lobby: Lobby): F[GameId] = for {
     queue <- broker.getQueue("poker-game-topic")
-    gameId <- EitherT.right(GameId.fromRandom)
-    eventId <- EitherT.right(EventId.fromRandom)
+    gameId <- GameId.fromRandom
+    eventId <- EventId.fromRandom
     event = CreateGameEvent(
       id = eventId,
       gameId = gameId,
       settings = lobby.gameSettings.asInstanceOf[PokerSettings], // todo asInstanceOf
       users = lobby.users.map { case (user, token) => (user.id, token) }
     )
-    _ <- EitherT.right(queue.enqueue1(event.asJson.noSpaces))
+    _ <- queue.enqueue1(event.asJson.noSpaces)
   } yield gameId
 }
 

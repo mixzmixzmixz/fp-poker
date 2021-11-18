@@ -5,14 +5,9 @@ import io.laminext.fetch.circe._
 import io.circe.syntax._
 import io.laminext.core.StoredString
 import org.scalajs.dom
-
+import laminar.webcomponents.material.{Button, Textfield}
 import mixzpoker.App.router
 import mixzpoker.components.Navigation._
-import mixzpoker.components.Panels._
-import mixzpoker.components.Containers._
-import mixzpoker.components.Buttons._
-import mixzpoker.components.Fields._
-import mixzpoker.components.Headers._
 import mixzpoker.model.UserDto._
 
 
@@ -32,25 +27,44 @@ object Auth {
         if (resp.headers.has("Authorization")) resp.headers.get("Authorization") else ""
       }))
 
-    SimpleContainer(
+    div(
       flexDirection.column,
-      AuthPanel(
-        AuthHeader("Sign In"),
-        br(), child.text <-- storedAuthToken.signal, br(),
-        TextField("Login: ", loginVar, placeholder("Enter your login here")),
-        br(),
-        TextField("Password: ", passwordVar),
-        SimpleContainer(
-          flexDirection.row, marginBottom("0px"),
-          SimpleButton("Sign In!", inContext { thisNode =>
+      cls("mixz-panel-auth"),
+      div(
+        cls("mixz-auth-head"),
+        div("Sign In", cls("auth-head-title")),
+      ),
+      br(), child.text <-- storedAuthToken.signal, br(),
+      Textfield(
+        _ => padding := "20px",
+        _.`label` := "Login: ",
+        _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> loginVar}
+      ),
+      br(),
+      Textfield(
+        _ => padding := "20px",
+        _.`label` := "Password: ",
+        _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> passwordVar}
+      ),
+      div(
+        cls("mixz-container-simple"),
+        flexDirection.row, marginBottom("0px"),
+        Button(
+          _.`raised` := true,
+          _.`label` := "Sign In!",
+          _ => inContext { thisNode =>
             val $token = thisNode.events(onClick).flatMap(_ => signInRequest)
 
             List(
               $token.filterNot(_ == "") --> storedAuthToken.setObserver,
-              $token.filterNot(_ == "") --> (_ => router.pushState(Page.RedirectPage))
+              $token.filterNot(_ == "") --> (_ => router.pushState(Page.Redirect))
             )
-          }),
-          SimpleButton("Sign Up", navigateTo(Page.SignUpPage)),
+          }
+        ),
+        Button(
+          _.`raised` := true,
+          _.`label` := "Sign Up",
+          _ => navigateTo(Page.SignUp)
         )
       )
     )
@@ -71,24 +85,46 @@ object Auth {
       }))
 
 
-    SimpleContainer(
+    div(
       flexDirection.column,
-      AuthPanel(
-        AuthHeader("Sign Up"),
-        TextField("Login: ", loginVar, placeholder("Enter your login here")),
+      div(
+        cls("mixz-panel-auth"),
+        div(
+          cls("mixz-auth-head"),
+          div("Sign Up", cls("auth-head-title")),
+        ),
+        Textfield(
+          _ => padding := "20px",
+          _.`label` := "Login: ",
+          _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> loginVar}
+        ),
         br(),
-        TextField("Password: ", passwordVar, placeholder("Do not use your real password!")),
-        SimpleContainer(
+        Textfield(
+          _ => padding := "20px",
+          _.`label` := "Password: ",
+          _.`placeholder` := "Do not use your real password!",
+          _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> passwordVar}
+        ),
+        div(
+          cls("mixz-container-simple"),
           flexDirection.row, marginBottom("10px"),
-          SimpleButton("Sign Up!",  inContext { thisNode =>
-            val $token = thisNode.events(onClick).flatMap(_ => signUpRequest)
+          Button(
+            _.`raised` := true,
+            _.`label` := "Sign Up!",
+            _ => inContext { thisNode =>
+              val $token = thisNode.events(onClick).flatMap(_ => signUpRequest)
 
-            List(
-              $token.filterNot(_ == "") --> storedAuthToken.setObserver,
-              $token.filterNot(_ == "") --> (_ => router.pushState(Page.RedirectPage))
-            )
-          }),
-          SimpleButton("Sign In", navigateTo(Page.SignInPage))
+              List(
+                $token.filterNot(_ == "") --> storedAuthToken.setObserver,
+                $token.filterNot(_ == "") --> (_ => router.pushState(Page.Redirect))
+              )
+            }
+          ),
+          Button(
+            _.`raised` := true,
+            _.`label` := "Sign In",
+            _ => navigateTo(Page.SignIn)
+          )
         )
       )
     )

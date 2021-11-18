@@ -10,13 +10,12 @@ import BrokerError._
 
 
 trait Broker[F[_]] {
-  def getMessage(id: String): EitherT[F, BrokerError, String]
-  def sendMessage(id: String, message: String): EitherT[F, BrokerError, Unit]
-  def createTopic(id: String): EitherT[F, BrokerError, Unit]
-  def deleteTopic(id: String): EitherT[F, BrokerError, Unit]
+  def getMessage(id: String): F[String]
+  def sendMessage(id: String, message: String): F[Unit]
+  def createTopic(id: String): F[Unit]
+  def deleteTopic(id: String): F[Unit]
 
-  def getQueue(id: String): EitherT[F, BrokerError, Queue[F, String]]
-
+  def getQueue(id: String): F[Queue[F, String]]
 }
 
 object Broker {
@@ -25,30 +24,34 @@ object Broker {
     store <- Ref.of(Map.empty[String, Queue[F, String]])
 
   } yield new Broker[F] {
-    override def getMessage(id: String): EitherT[F, BrokerError, String] = for {
-        q <- EitherT(store.get.map(_.get(id).toRight[BrokerError](NoSuchTopic)))
-        msg <- EitherT.right[BrokerError](q.dequeue1)
-      } yield msg
+    override def getMessage(id: String): F[String] = for {
+      map <- store.get
+      q <- map.get(id).toRight[BrokerError](NoSuchTopic).liftTo[F]
+      msg <- q.dequeue1
+    } yield msg
 
-    override def sendMessage(id: String, message: String): EitherT[F, BrokerError, Unit] = for {
-        q <- EitherT(store.get.map(_.get(id).toRight[BrokerError](NoSuchTopic)))
-        _ <- EitherT.right[BrokerError](q.enqueue1(message))
-      } yield()
+    override def sendMessage(id: String, message: String): F[Unit] = for {
+      map <- store.get
+      q <- map.get(id).toRight[BrokerError](NoSuchTopic).liftTo[F]
+      _ <- q.enqueue1(message)
+    } yield()
 
-    override def createTopic(id: String): EitherT[F, BrokerError, Unit] = for {
-        exist <- EitherT.right[BrokerError](store.get.map(_.contains(id)))
-        _ <- EitherT.cond[F](!exist, (), TopicAlreadyExist)
-        q <- EitherT.right[BrokerError](Queue.bounded[F, String](bound))
-        _ <- EitherT.right[BrokerError](store.update(_ + (id -> q)))
+    override def createTopic(id: String): F[Unit] = for {
+        exist <- store.get.map(_.contains(id))
+        _ <- Either.cond(!exist, (), TopicAlreadyExist).liftTo[F]
+        q <- Queue.bounded[F, String](bound)
+        _ <- store.update(_ + (id -> q))
       } yield ()
 
-    override def deleteTopic(id: String): EitherT[F, BrokerError, Unit] = for {
-        exist <- EitherT.right[BrokerError](store.get.map(_.contains(id)))
-        _ <- EitherT.cond[F](exist, (), NoSuchTopic)
-        _ <- EitherT.right[BrokerError](store.update(_ - id))
+    override def deleteTopic(id: String): F[Unit] = for {
+        exist <- store.get.map(_.contains(id))
+        _ <- Either.cond(exist, (), NoSuchTopic).liftTo[F]
+        _ <- store.update(_ - id)
       } yield ()
 
-    override def getQueue(id: String): EitherT[F, BrokerError, Queue[F, String]] =
-      EitherT(store.get.map(_.get(id).toRight[BrokerError](NoSuchTopic)))
+    override def getQueue(id: String): F[Queue[F, String]] = for {
+      map <- store.get
+      q <- map.get(id).toRight[BrokerError](NoSuchTopic).liftTo[F]
+    } yield q
   }
 }

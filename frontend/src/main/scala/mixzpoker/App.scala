@@ -7,11 +7,12 @@ import io.laminext.syntax.core._
 import com.raquo.waypoint._
 import upickle.default._
 import org.scalajs.dom
-import Page._
+
 import laminar.webcomponents.material.{Button, Icon, List, TopAppBar}
 import mixzpoker.components.Users.AppUserProfile
 import mixzpoker.model.AppState
 import mixzpoker.model.AppState._
+import mixzpoker.pages._
 
 
 object App {
@@ -20,23 +21,38 @@ object App {
   val appStateVar: Var[AppState] = Var[AppState](AppNotLoaded)
 
   val routes = scala.List(
-    Route.static(SignUpPage,  root / "sign-up" / endOfSegments),
-    Route.static(SignInPage,  root / "sign-in" / endOfSegments),
-    Route.static(RedirectPage,root /             endOfSegments),
-    Route.static(LobbiesPage, root / "lobbies" / endOfSegments),
-    Route.static(GamesPage,   root / "games"   / endOfSegments),
+    Route.static(Page.SignUp,  root / "sign-up" / endOfSegments),
+    Route.static(Page.SignIn,  root / "sign-in" / endOfSegments),
+    Route.static(Page.Redirect,root /             endOfSegments),
+    Route.static(Page.Lobbies, root / "lobbies" / endOfSegments),
+    Route.static(Page.Games,   root / "games"   / endOfSegments),
   )
 
   val router = new Router[Page](
     routes = routes,
     getPageTitle = _.toString, // mock page title (displayed in the browser tab next to favicon)
-    serializePage = page => write(page)(rwPage), // serialize page data for storage in History API log
-    deserializePage = pageStr => read(pageStr)(rwPage), // deserialize the above
-    routeFallback = _ => RedirectPage
+    serializePage = page => write(page)(Page.rwPage), // serialize page data for storage in History API log
+    deserializePage = pageStr => read(pageStr)(Page.rwPage), // deserialize the above
+    routeFallback = _ => Page.Redirect
   )(
     $popStateEvent = L.windowEvents.onPopState, // this is how Waypoint avoids an explicit dependency on Laminar
     owner = L.unsafeWindowOwner // this router will live as long as the window
   )
+
+  val splitter: SplitRender[Page, HtmlElement] =
+    SplitRender[Page, HtmlElement](router.$currentPage)
+      .collectStatic(Page.SignUp)   { NoAuthFence(Auth.SignUpPage(storedAuthToken))  }
+      .collectStatic(Page.SignIn)   { NoAuthFence(Auth.SignInPage(storedAuthToken))  }
+      .collectStatic(Page.Redirect) { AuthFence(renderRedirectPage())                }
+      .collectSignal[Page.AppPage]      { $appPage => AuthFence(renderAppPage($appPage)) }
+
+  val route: Div = div(child <-- splitter.$view)
+
+  def getUserInfo: EventStream[AppState] = storedAuthToken.signal.flatMap { token =>
+    Fetch
+      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[AppUserInfo]
+      .recoverToTry.map(_.fold(_ => Unauthorized, _.data))
+  }
 
   def AuthFence(page: => HtmlElement): HtmlElement =
     div(
@@ -44,7 +60,7 @@ object App {
       child <-- appStateVar.signal.map {
         case AppState.AppNotLoaded => appNotLoaded()
         case AppState.Unauthorized =>
-          router.pushState(Page.SignInPage)
+          router.pushState(Page.SignIn)
           div("Unauthorized <redirect to SignIn Page>")
         case appUserInfo: AppUserInfo => page
       }
@@ -57,38 +73,23 @@ object App {
         case AppState.AppNotLoaded => appNotLoaded()
         case AppState.Unauthorized => page
         case appUserInfo: AppUserInfo =>
-          router.pushState(Page.LobbiesPage)
+          router.pushState(Page.Lobbies)
           div("Unauthorized <redirect to Main Page>")
 
       }
     )
 
-  val splitter: SplitRender[Page, HtmlElement] =
-    SplitRender[Page, HtmlElement](router.$currentPage)
-      .collectStatic(SignUpPage)   { NoAuthFence(Auth.SignUpPage(storedAuthToken))  }
-      .collectStatic(SignInPage)   { NoAuthFence(Auth.SignInPage(storedAuthToken))  }
-      .collectStatic(RedirectPage) { AuthFence(renderRedirectPage())                }
-      .collectSignal[AppPage]      { $appPage => AuthFence(renderAppPage($appPage)) }
-
-  val route: Div = div(child <-- splitter.$view)
-
-  def getUserInfo: EventStream[AppState] = storedAuthToken.signal.flatMap { token =>
-    Fetch
-      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[AppUserInfo]
-      .recoverToTry.map(_.fold(_ => Unauthorized, _.data))
-  }
-
   private def appNotLoaded(): HtmlElement = div("Loading App...")
 
   private def renderRedirectPage(): HtmlElement = {
-    router.pushState(LobbiesPage)
+    router.pushState(Page.Lobbies)
     div("Redirect to Lobbies")
   }
 
-  private def renderAppPage($appPage: Signal[AppPage]): HtmlElement = {
-    val appPageSplitter = SplitRender[AppPage, HtmlElement]($appPage)
-      .collectStatic(LobbiesPage) { Lobbies() }
-      .collectStatic(GamesPage)   { Games() }
+  private def renderAppPage($appPage: Signal[Page.AppPage]): HtmlElement = {
+    val appPageSplitter = SplitRender[Page.AppPage, HtmlElement]($appPage)
+      .collectStatic(Page.Lobbies) { LobbiesPage() }
+      .collectStatic(Page.Games)   { GamesPage() }
 
     div(
       MainNavigation(),
@@ -119,7 +120,6 @@ object App {
           _.styles.buttonOutlineColor := "#6200ed",
           _.slots.icon(span("🍉")),
           _.`label` := "Lobbies",
-          _.slots.default()
         ),
         Button(
           _.`raised` := true,
@@ -145,7 +145,7 @@ object App {
           _.slots.graphic(Icon().amend(textToNode("account_circle"))),
           _.slots.default(span("Lobbies", cls("mixz-panel-text"))),
           _ => width := "200px",
-          _ => onClick --> { _ => router.pushState(LobbiesPage)}
+          _ => onClick --> { _ => router.pushState(Page.Lobbies)}
         ),
         List.ListItem(
           _.`tabindex` := -1,
@@ -153,19 +153,12 @@ object App {
           _.slots.graphic(Icon().amend(textToNode("account_circle"))),
           _.slots.default(span("Games", cls("mixz-panel-text"))),
           _ => width := "200px",
-          _ => onClick --> { _ => router.pushState(GamesPage)}
+          _ => onClick --> { _ => router.pushState(Page.Games)}
         )
       )
     )
   }
 
-  private def Lobbies(): HtmlElement = {
-    div("Lobbies")
-  }
-
-  private def Games(): HtmlElement = {
-    div("Games")
-  }
 
 }
 

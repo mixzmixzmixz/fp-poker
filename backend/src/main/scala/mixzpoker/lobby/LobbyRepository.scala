@@ -3,17 +3,16 @@ package mixzpoker.lobby
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import cats.data.EitherT
-
 import LobbyError._
 
 
 trait LobbyRepository[F[_]] {
-  def getLobby(name: LobbyName): EitherT[F, LobbyError, Lobby]
-  def saveLobby(lobby: Lobby): EitherT[F, LobbyError, Unit]
-  def deleteLobby(name: LobbyName): EitherT[F, LobbyError, Unit]
+  def getLobbiesList(): F[List[Lobby]]
+  def getLobby(name: LobbyName): F[Lobby]
+  def saveLobby(lobby: Lobby): F[Unit]
+  def deleteLobby(name: LobbyName): F[Unit]
 
-  def checkLobbyAlreadyExist(name: LobbyName): EitherT[F, LobbyError, Unit]
+  def checkLobbyAlreadyExist(name: LobbyName): F[Unit]
 }
 
 
@@ -22,18 +21,20 @@ object LobbyRepository {
   def inMemory[F[_]: Sync]: F[LobbyRepository[F]] = for {
     store <- Ref.of(Map[LobbyName, Lobby]())
   } yield new LobbyRepository[F] {
-    override def getLobby(name: LobbyName): EitherT[F, LobbyError, Lobby] =
-      EitherT(store.get.map(_.get(name).toRight(NoSuchLobby)))
+    override def getLobbiesList(): F[List[Lobby]] =
+      store.get.map(_.values.toList)
 
-    override def saveLobby(lobby: Lobby): EitherT[F, LobbyError, Unit] =
-      EitherT.right(store.update { _.updated(lobby.name, lobby) })
+    override def getLobby(name: LobbyName): F[Lobby] =
+      store.get.flatMap(_.get(name).toRight(NoSuchLobby).liftTo[F])
 
-    override def deleteLobby(name: LobbyName): EitherT[F, LobbyError, Unit] =
-      EitherT.right(store.update { _ - name })
+    override def saveLobby(lobby: Lobby): F[Unit] =
+      store.update { _.updated(lobby.name, lobby) }
 
+    override def deleteLobby(name: LobbyName): F[Unit] =
+      store.update { _ - name }
 
-    override def checkLobbyAlreadyExist(name: LobbyName): EitherT[F, LobbyError, Unit] =
-      EitherT(store.get.map { map => Either.cond(!map.contains(name), (), LobbyAlreadyExist) })
+    override def checkLobbyAlreadyExist(name: LobbyName): F[Unit] =
+      store.get.flatMap { map => Either.cond(!map.contains(name), (), LobbyAlreadyExist).liftTo[F] }
 
   }
 

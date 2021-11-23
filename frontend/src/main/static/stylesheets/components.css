@@ -124,7 +124,6 @@
     white-space: pre;
     overflow: auto;
     align-self: auto !important;
-    padding: 20px;
 }
 
 .mixz-panel-auth {
@@ -168,6 +167,7 @@
     flex-direction: column;
     align-content: flex-start;
     width: auto;
+    height: 100%;
     background: #8e87e2;
 }
 
@@ -178,4 +178,52 @@
     word-wrap: break-word;
     -webkit-font-smoothing: antialiased;
     color: #fff;
+}
+
+.lobby-list-item {
+    padding-left: 10px;
+    border: none;
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.12);
+    position: relative;
+}
+
+.lobby-heading-btn {
+    float: right;
+    margin-left:  auto;
+    margin-right: 10px;
+    max-width: 150px;
+}
+
+.lobby-heading {
+    display: flex;
+    padding: 20px;
+
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: rgba(0, 0, 0, 0.12);
+}
+
+.lobby-heading-name {
+    color: #961296;
+    font-size: 36px;
+}
+
+.lobby-users {
+    float: right;
+}
+
+.lobby-main {
+    display: flex;
+    height: 100%;
+    width: 80%;
+    border-right-width: 1px;
+    border-right-style: solid;
+    border-right-color: rgba(0, 0, 0, 0.12);
+}
+
+h1 {
+    padding: 10px;
+    color: #961296;
 }

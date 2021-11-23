@@ -5217,7 +5217,10 @@ package laminar.webcomponents.material {
 
 
 
-    /** The select control's value determined by the value property of the currently selected list item. Setting value will attempt to select a list-item with the same value. If one does not match, it will set itself to "" and the index to -1. Setting value before the list item is attached will not select the item.
+    /** The select control's value determined by the value property of the currently selected list item.
+     * Setting value will attempt to select a list-item with the same value. If one does not match,
+     * it will set itself to "" and the index to -1. Setting value before the list item is attached
+     * will not select the item.
      *
      * @see <a href="https://github.com/material-components/material-components-web-components/tree/master/packages/select">Component Documentation</a>
      */

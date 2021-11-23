@@ -4,7 +4,6 @@ import com.raquo.laminar.api.L._
 import io.laminext.fetch.circe._
 import io.circe.syntax._
 import io.laminext.core.StoredString
-import org.scalajs.dom
 import laminar.webcomponents.material.{Button, Textfield}
 import mixzpoker.App.router
 import mixzpoker.components.Navigation._
@@ -13,19 +12,35 @@ import mixzpoker.model.UserDto._
 
 object Auth {
 
-  def SignInPage(storedAuthToken: StoredString): HtmlElement = {
-    val loginVar = Var("")
-    val passwordVar = Var("")
+  object requests {
 
-    def signInRequest: EventStream[String] = Fetch
+    def signInRequest(body: SignInDto): EventStream[String] = Fetch
       .post(
         url = s"${Config.rootEndpoint}/auth/sign-in",
-        body = SignInDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase).asJson
+        body = body.asJson
       )
       .text.recoverToTry
       .map(_.fold(_ => "", resp => {
         if (resp.headers.has("Authorization")) resp.headers.get("Authorization") else ""
       }))
+
+
+    def signUpRequest(body: SignUpDto): EventStream[String] = Fetch
+      .post(
+        url = s"${Config.rootEndpoint}/auth/sign-up",
+        body = body.asJson
+      )
+      .text.recoverToTry
+      .map(_.fold(_ => "", resp => {
+        if (resp.headers.has("Authorization")) resp.headers.get("Authorization") else ""
+      }))
+  }
+
+  import requests._
+
+  def SignInPage(storedAuthToken: StoredString): HtmlElement = {
+    val loginVar = Var("")
+    val passwordVar = Var("")
 
     div(
       flexDirection.column,
@@ -53,7 +68,9 @@ object Auth {
           _.`raised` := true,
           _.`label` := "Sign In!",
           _ => inContext { thisNode =>
-            val $token = thisNode.events(onClick).flatMap(_ => signInRequest)
+            val $token = thisNode.events(onClick).flatMap { _ =>
+              signInRequest(SignInDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
+            }
 
             List(
               $token.filterNot(_ == "") --> storedAuthToken.setObserver,
@@ -73,17 +90,6 @@ object Auth {
   def SignUpPage(storedAuthToken: StoredString): HtmlElement = {
     val loginVar = Var("")
     val passwordVar = Var("")
-
-    def signUpRequest: EventStream[String] = Fetch
-      .post(
-        url = s"${Config.rootEndpoint}/auth/sign-up",
-        body = SignUpDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase).asJson
-      )
-      .text.recoverToTry
-      .map(_.fold(_ => "", resp => {
-        if (resp.headers.has("Authorization")) resp.headers.get("Authorization") else ""
-      }))
-
 
     div(
       flexDirection.column,
@@ -112,7 +118,9 @@ object Auth {
             _.`raised` := true,
             _.`label` := "Sign Up!",
             _ => inContext { thisNode =>
-              val $token = thisNode.events(onClick).flatMap(_ => signUpRequest)
+              val $token = thisNode.events(onClick).flatMap { _ =>
+                signUpRequest(SignUpDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
+              }
 
               List(
                 $token.filterNot(_ == "") --> storedAuthToken.setObserver,

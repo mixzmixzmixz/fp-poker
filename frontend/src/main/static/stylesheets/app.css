@@ -18,12 +18,13 @@ html {
     --paper-red-800: #c62828;
     --paper-red-900: #b71c1c;
 
-    display: block;
+    display: flex;
     color: text;
 }
 
 body {
     height: 100%;
+    width: 100%;
     margin: 0px;
     font-size: 8pt;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -40,4 +41,14 @@ body {
     font-weight: 700;
     word-wrap: break-word;
     -webkit-font-smoothing: antialiased;
+}
+
+mwc-list {
+    --mdc-list-vertical-padding: 0px;
+    --mdc-theme-primary: blue;
+    --mdc-list-inset-margin: 0px;
+    --mdc-theme-text-primary-on-background: #b71c1c;
+    border: 1px solid #d3d3d3;
+    max-width: 400px;
+    margin-bottom: 8px;
 }

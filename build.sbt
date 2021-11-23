@@ -78,6 +78,7 @@ lazy val frontend = project
       "@material/mwc-snackbar" -> MwcVersion,
       "@material/mwc-formfield" -> MwcVersion,
       "@material/mwc-textfield" -> MwcVersion,
+      "@material/mwc-dialog" -> MwcVersion,
     ),
     scalacOptions ~= { options: Seq[String] =>
       options.filterNot { o =>

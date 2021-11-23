@@ -7,6 +7,8 @@ import org.http4s.{AuthedRoutes, Request, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
 import io.circe.syntax._
+import tofu.logging.Logging
+import tofu.syntax.logging._
 
 import mixzpoker.game.poker.PokerSettings
 import mixzpoker.game.poker.PokerEvent.CreateGameEvent
@@ -15,7 +17,7 @@ import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.user.User
 
 
-class LobbyApi[F[_]: Sync](
+class LobbyApi[F[_]: Sync: Logging](
   lobbyRepository: LobbyRepository[F], broker: Broker[F]
 ) {
   val dsl: Http4sDsl[F] = new Http4sDsl[F]{}
@@ -40,7 +42,9 @@ class LobbyApi[F[_]: Sync](
     //todo mb filter lobbies by User rights or smth
     // todo filter and pagination using query params
     for {
+      _ <- info"Get lobbies req user:"
       lobbies <- lobbyRepository.getLobbiesList()
+      _ <- info"Get lobbies: ${lobbies.asJson.spaces2}"
       resp <- Ok(lobbies.asJson)
     } yield resp
   }

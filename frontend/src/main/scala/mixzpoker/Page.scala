@@ -11,8 +11,10 @@ object Page {
 
   sealed trait AppPage extends Page
   case object Lobbies extends AppPage
+  case class Lobby(name: String) extends AppPage
   case object Games extends AppPage
 
+  implicit val rwLobbyAppPage: ReadWriter[Lobby] = macroRW
   implicit val rwAppPage: ReadWriter[AppPage] = macroRW
   implicit val rwPage: ReadWriter[Page] = macroRW
 

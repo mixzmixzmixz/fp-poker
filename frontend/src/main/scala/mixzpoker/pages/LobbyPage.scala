@@ -2,10 +2,11 @@ package mixzpoker.pages
 
 import com.raquo.laminar.api.L._
 import io.laminext.fetch.circe._
-import laminar.webcomponents.material.{Button, Dialog, Formfield, Icon, Textfield, List => MList}
+import io.circe.syntax._
+import laminar.webcomponents.material.{Button, Dialog, Icon, Textfield, List => MList}
 import mixzpoker.model.GameSettings.PokerSettings
-import mixzpoker.{Config, Page}
-import mixzpoker.model.LobbyDto.Lobby
+import mixzpoker.{App, Config, Page}
+import mixzpoker.model.LobbyDto.{JoinLobbyRequest, Lobby}
 
 import scala.util.{Failure, Success, Try}
 
@@ -17,6 +18,13 @@ object LobbyPage {
         url = s"${Config.rootEndpoint}/lobby/$name",
         headers = Map("Authorization" -> token)
       ).decodeOkay[Lobby].recoverToTry.map(_.map(_.data))
+
+    def joinLobbyRequest(name: String, body: JoinLobbyRequest)(implicit token: String): EventStream[Try[String]] =
+      Fetch.post(
+        url = s"${Config.rootEndpoint}/lobby/$name/join",
+        headers = Map("Authorization" -> token),
+        body = body.asJson
+      ).text.recoverToTry.map(_.map(_.data))
   }
 
   import requests._
@@ -42,7 +50,7 @@ object LobbyPage {
     )
   }
 
-  private def Settings(isSettingsDialogOpen: Var[Boolean], settings: PokerSettings): HtmlElement = {
+  private def SettingsDialog(isOpen: Var[Boolean], settings: PokerSettings): HtmlElement = {
 
     val fieldMaxPlayers = Textfield(_.`name` := "Max Players", _.`value` := settings.maxPlayers.toString, _.`outlined` := true)
     val fieldMinPlayers = Textfield(_.`name` := "Min Players", _.`value` := settings.minPlayers.toString, _.`outlined` := true)
@@ -54,36 +62,38 @@ object LobbyPage {
 
     Dialog(
       _.`heading` := "Settings",
-      _.`open` <-- isSettingsDialogOpen,
+      _.`open` <-- isOpen,
       _.slots.primaryAction(Button(
         _.`label` := "Create",
         _.`disabled` := false,
         _ => inContext { thisNode =>
           // todo send updateSettings
           thisNode.events(onClick) --> {_ =>
-            isSettingsDialogOpen.set(false)
+            isOpen.set(false)
           }
         }
       )),
       _.slots.secondaryAction(Button(
         _.`label` := "Cancel",
-        _ => onClick --> { _ => isSettingsDialogOpen.set(false) }
+        _ => onClick --> { _ => isOpen.set(false) }
       )),
       _.slots.default(div(
         display("flex"), flexDirection.column,
-        label("Max Players: ", fieldMinPlayers),
-        label("Min Players: ", fieldMaxPlayers),
-        label("Small Blind: ", fieldSmallBlind),
-        label("Big Blind: ", fieldBigBlind),
-        label("Ante: " , fieldAnte),
-        label("BuyIn Min: ", fieldBuyInMin),
-        label("BuyIn Max: ", fieldBuyInMax)
+        label("Max Players: ", fieldMinPlayers, padding("10px")),
+        label("Min Players: ", fieldMaxPlayers, padding("10px")),
+        label("Small Blind: ", fieldSmallBlind, padding("10px")),
+        label("Big Blind: ", fieldBigBlind, padding("10px")),
+        label("Ante: " , fieldAnte, padding("10px")),
+        label("BuyIn Min: ", fieldBuyInMin, padding("10px")),
+        label("BuyIn Max: ", fieldBuyInMax, padding("10px"))
       ))
     )
   }
 
-  private def renderLobby(lobby: Lobby): HtmlElement = {
+  private def renderLobby(lobby: Lobby)(implicit token: String): HtmlElement = {
     val isSettingsDialogOpen = Var(false)
+    val isJoinLobbyDialogOpen = Var(false)
+    val errMsg = Var("")
 
     def Users() = {
       if (lobby.users.isEmpty)
@@ -91,18 +101,56 @@ object LobbyPage {
       else
         MList(
           _.slots.default(
-            lobby.users.map { case (user, buyIn) =>
+            lobby.users.map { player =>
               MList.ListItem(
                 _.`graphic` := "avatar",
                 _.`twoline` := true,
                 _.`hasMeta` := true,
                 _.slots.graphic(Icon().amend(span("person"))),
-                _.slots.default(span(user.name)),
-                _.slots.secondary(span(buyIn.toString)),
+                _.slots.default(span(player.user.name)),
+                _.slots.secondary(span(player.buyIn.toString)),
               )
             }: _*
           )
         )
+    }
+
+    def JoinLobbyDialog(isOpen: Var[Boolean]): HtmlElement = {
+      val fieldBuyIn = Var(lobby.gameSettings.buyInMin.toString)
+
+      Dialog(
+        _.`heading` := s"Join Lobby ${lobby.name}",
+        _.`open` <-- isOpen,
+        _.slots.primaryAction(Button(
+          _.`label` := "Join",
+          _.`disabled` <-- fieldBuyIn.signal.map(_.toIntOption.fold(true)(_ => false)),
+          _ => inContext { _.events(onClick).flatMap { _ =>
+            joinLobbyRequest(lobby.name, JoinLobbyRequest(fieldBuyIn.now().toInt))
+          } --> { _ match {
+                case Success(_) =>
+                  isOpen.set(false)
+                  App.router.replaceState(Page.Lobby(lobby.name))
+                case Failure(exc) =>
+                  isOpen.set(false)
+                  errMsg.set(exc.toString)
+              }
+            }
+          }
+        )),
+        _.slots.secondaryAction(Button(
+          _.`label` := "Cancel",
+          _ => onClick --> { _ => isOpen.set(false) }
+        )),
+        _.slots.default(div(
+          display("flex"), flexDirection.column,
+          label("Buy In: ", Textfield(
+            _.`type` := "number",
+            _.`outlined` := true,
+            _.`value` <-- fieldBuyIn,
+            _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> fieldBuyIn},
+          ), padding("10px")),
+        ))
+      )
     }
 
     div(
@@ -111,10 +159,17 @@ object LobbyPage {
       div(
         cls("lobby-heading"),
         span(lobby.name, cls("lobby-heading-name")),
-        Settings(isSettingsDialogOpen, lobby.gameSettings),
+        SettingsDialog(isSettingsDialogOpen, lobby.gameSettings),
+        JoinLobbyDialog(isJoinLobbyDialogOpen),
+        ExceptionPage.ErrorDialog(errMsg),
         div(
           float("right"), marginRight("0"), marginLeft("auto"),
-          Button(_.`raised` := true, _.`label` := "join", _ => cls("lobby-heading-btn")), //todo or leave
+          Button(
+            _.`raised` := true,
+            _.`label` := "join",
+            _ => cls("lobby-heading-btn"),
+            _ => onClick --> { _ => isJoinLobbyDialogOpen.set(true)}
+          ), //todo or leave
           Button(
             _.`raised` := true,
             _.`label` := "settings",

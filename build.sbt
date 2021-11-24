@@ -4,7 +4,25 @@ ThisBuild / scalaVersion := Versions.Scala_2_13
 
 import Versions._
 
-//addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.1" cross CrossVersion.full)
+lazy val shared = project
+  .in(file("shared"))
+  .enablePlugins(ScalaJSPlugin)
+  .settings(
+    //addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.1" cross CrossVersion.full)
+    scalacOptions ++= Seq("-Ymacro-annotations", "-Wunused:imports"), //"-Xfatal-warnings",
+    //    resolvers ++= Seq(
+    //      "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+    //      "Sonatype OSS Snapshots s01" at "https://s01.oss.sonatype.org/content/repositories/snapshots"
+    //    ),
+    libraryDependencies ++= Seq(
+      "io.circe"        %% "circe-generic"       % circeVersion,
+      "io.circe"        %% "circe-parser"        % circeVersion,
+    ),
+    scalaVersion := "2.13.6",
+    scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.ESModule) },
+    scalaJSLinkerConfig ~= { _.withSourceMap(false) }
+  )
+
 
 lazy val backend = project
   .in(file("backend"))
@@ -47,6 +65,7 @@ lazy val backend = project
       "org.scalatestplus" %% "selenium-2-45"            % scalaTestVersion % Test
     )
   )
+  .dependsOn(shared)
 
 
 lazy val frontend = project
@@ -99,3 +118,4 @@ lazy val frontend = project
 //      "com.github.uosis" %%% "laminar-web-components-material" % "0.1.0"
     )
   )
+  .dependsOn(shared)

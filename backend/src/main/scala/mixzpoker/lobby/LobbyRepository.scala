@@ -3,39 +3,65 @@ package mixzpoker.lobby
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
+import fs2.concurrent.{Queue, Topic}
+import mixzpoker.game.GameType
+import mixzpoker.game.poker.PokerSettings
+import mixzpoker.user.User
 import LobbyError._
+import mixzpoker.messages.lobby.{LobbyInputMessage, LobbyOutputMessage}
 
 
 trait LobbyRepository[F[_]] {
-  def getLobbiesList(): F[List[Lobby]]
-  def getLobby(name: LobbyName): F[Lobby]
-  def saveLobby(lobby: Lobby): F[Unit]
-  def deleteLobby(name: LobbyName): F[Unit]
-
-  def checkLobbyAlreadyExist(name: LobbyName): F[Unit]
+  def create(name: String, owner: User, gameType: GameType): F[Unit]
+  def list(): F[List[Lobby]]
+  def get(name: LobbyName): F[Lobby]
+  def save(lobby: Lobby): F[Unit]
+  def delete(name: LobbyName): F[Unit]
+  def exists(name: LobbyName): F[Boolean]
+  def ensureExists(name: LobbyName): F[Unit]
+  def ensureDoesNotExist(name: LobbyName): F[Unit]
 }
 
 
 object LobbyRepository {
 
   def inMemory[F[_]: Sync]: F[LobbyRepository[F]] = for {
-    store <- Ref.of(Map[LobbyName, Lobby]())
+    store  <- Ref.of[F, Map[LobbyName, Lobby]](Map.empty)
+    topics <- Ref.of[F, Map[LobbyName, Topic[F, LobbyOutputMessage]]](Map.empty)
+    queues <- Ref.of[F, Map[LobbyName, Queue[F, LobbyInputMessage ]]](Map.empty)
   } yield new LobbyRepository[F] {
-    override def getLobbiesList(): F[List[Lobby]] =
+
+    override def create(name: String, owner: User, gameType: GameType): F[Unit] = for {
+      lobbyName <- LobbyName.fromString(name).liftTo[F]
+      settings <- (gameType match {
+                    case GameType.Poker => PokerSettings.create()
+                  }).toRight(InvalidSettings).liftTo[F]
+      _ <- ensureDoesNotExist(lobbyName)
+      lobby = Lobby(lobbyName, owner, List(), gameType, settings)
+      _ <- save(lobby)
+    } yield ()
+
+
+    override def list(): F[List[Lobby]] =
       store.get.map(_.values.toList)
 
-    override def getLobby(name: LobbyName): F[Lobby] =
+    override def get(name: LobbyName): F[Lobby] =
       store.get.flatMap(_.get(name).toRight(NoSuchLobby).liftTo[F])
 
-    override def saveLobby(lobby: Lobby): F[Unit] =
+    override def save(lobby: Lobby): F[Unit] =
       store.update { _.updated(lobby.name, lobby) }
 
-    override def deleteLobby(name: LobbyName): F[Unit] =
+    override def delete(name: LobbyName): F[Unit] =
       store.update { _ - name }
 
-    override def checkLobbyAlreadyExist(name: LobbyName): F[Unit] =
+    override def ensureDoesNotExist(name: LobbyName): F[Unit] =
       store.get.flatMap { map => Either.cond(!map.contains(name), (), LobbyAlreadyExist).liftTo[F] }
 
+    override def exists(name: LobbyName): F[Boolean] =
+      store.get.map(_.contains(name))
+
+    override def ensureExists(name: LobbyName): F[Unit] =
+      exists(name).flatMap(b => Either.cond(b, (), NoSuchLobby).liftTo[F])
   }
 
 }

@@ -4,8 +4,8 @@ import mixzpoker.game.GameId
 import mixzpoker.game.core.Card
 import mixzpoker.game.core.deck.Deck
 import mixzpoker.game.poker.PokerError._
-import mixzpoker.game.poker.PokerSettings
 import mixzpoker.domain.Token
+import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.poker.player.PokerPlayer
 import mixzpoker.user.UserId
 

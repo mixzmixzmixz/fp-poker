@@ -8,10 +8,11 @@ import cats.implicits._
 import cats.effect.{ConcurrentEffect, ExitCode, Timer}
 import cats.effect.concurrent.Ref
 import mixzpoker.auth.{AuthApi, AuthUserRepository}
+import mixzpoker.domain.lobby.LobbyInputMessage
 import mixzpoker.user.{UserApi, UserRepository}
 import mixzpoker.game.poker.{PokerApi, PokerApp}
 import mixzpoker.infrastructure.broker.Broker
-import mixzpoker.lobby.{LobbyApi, LobbyRepository}
+import mixzpoker.lobby.{LobbyApi, LobbyRepository, LobbyService}
 import org.http4s.server.Router
 import org.http4s.server.middleware.{CORS, CORSConfig}
 import tofu.logging.Logging
@@ -26,20 +27,23 @@ object HttpServer {
     implicit val logging: Logging[F] = makeLogging.byName("Simple Log")
 
     for {
-      counter <- Ref[F].of(0)
-      userRepo <- UserRepository.inMemory
+      counter      <- Ref[F].of(0)
+      userRepo     <- UserRepository.inMemory
       authUserRepo <- AuthUserRepository.inMemory
-      lobbyRepo <- LobbyRepository.inMemory
-      broker <- Broker.fromQueues[F](32)
-      _ <- broker.createTopic("poker-game-topic")
-      pokerApp <- PokerApp.of(broker)
+      lobbyRepo    <- LobbyRepository.inMemory
+      broker       <- Broker.fromQueues[F](32)
+      _            <- broker.createTopic("poker-game-topic")
+      pokerApp     <- PokerApp.of(broker)
+      lobbyService <- LobbyService.of(lobbyRepo)
 
-      fiber <- ConcurrentEffect[F].start(pokerApp.run)
+      fiber1 <- ConcurrentEffect[F].start(pokerApp.run)
+      fiber2 <- ConcurrentEffect[F].start(lobbyService.run)
+
       helloWorld = new HelloWorld(counter)
-      authApi = new AuthApi(authUserRepo, userRepo)
-      userApi = new UserApi(userRepo)
-      pokerApi = new PokerApi(broker, pokerApp)
-      lobbyApi = new LobbyApi[F](lobbyRepo, broker)
+      authApi    = new AuthApi(authUserRepo, userRepo)
+      userApi    = new UserApi(userRepo)
+      pokerApi   = new PokerApi(broker, pokerApp)
+      lobbyApi   = new LobbyApi[F](lobbyRepo, broker, lobbyService)
 
       services =
         authApi.routes <+>

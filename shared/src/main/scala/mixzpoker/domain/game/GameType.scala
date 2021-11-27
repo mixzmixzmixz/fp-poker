@@ -1,4 +1,4 @@
-package mixzpoker.game
+package mixzpoker.domain.game
 
 import io.circe.{Decoder, Encoder}
 
@@ -7,6 +7,8 @@ sealed trait GameType
 
 object GameType {
   case object Poker extends GameType
+
+  def all: List[GameType] = List(Poker)
 
   implicit val decodeGameType: Decoder[GameType] = Decoder[String].emap {
     case "poker" => Right(Poker)

@@ -1,6 +1,5 @@
 package mixzpoker.auth
 
-import cats._
 import cats.effect._
 import cats.implicits._
 import cats.data._
@@ -8,12 +7,14 @@ import org.http4s._
 import org.http4s.server._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
-import io.circe.syntax._
-import mixzpoker.user.{User, UserDto, UserName, UserRepository}
-import AuthError._
 import org.http4s.util.CaseInsensitiveString
+import io.circe.syntax._
 import tofu.logging.Logging
 import tofu.syntax.logging._
+
+import mixzpoker.user.{User, UserName, UserRepository}
+import mixzpoker.domain.User.UserDto.UserDto
+import AuthError._
 
 
 class AuthApi[F[_]: Sync: Concurrent: Logging](authUserRepository: AuthUserRepository[F], userRepository: UserRepository[F]) {
@@ -49,7 +50,7 @@ class AuthApi[F[_]: Sync: Concurrent: Logging](authUserRepository: AuthUserRepos
     case req @ POST -> Root / "auth" / "sign-out" as user => signOut(req.req, user)
 
     case GET -> Root / "auth" / "me" as user =>
-      Ok(UserDto.User(user.id.toString, user.name.value, user.amount).asJson)
+      Ok(UserDto(user.id.toString, user.name.value, user.amount).asJson)
   }
 
   private def signIn(req: Request[F]): F[Response[F]] = {
@@ -79,7 +80,7 @@ class AuthApi[F[_]: Sync: Concurrent: Logging](authUserRepository: AuthUserRepos
   private def signUp(req: Request[F]): F[Response[F]] = {
     val userET = for {
       request <- EitherT.right(req.decodeJson[AuthDto.RegisterUserRequest])
-      user <- EitherT(User.newUser(request.userName, request.password).pure[F])
+      user <- EitherT(User.create(request.userName, request.password).pure[F])
       _ <- EitherT(userRepository.checkUserAlreadyExist(user.name))
       _ <- EitherT(userRepository.saveUser(user))
     } yield user

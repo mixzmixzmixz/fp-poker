@@ -1,10 +1,11 @@
-package mixzpoker.game.poker
-
-import io.circe.generic.JsonCodec
-import mixzpoker.game.GameSettings
+package mixzpoker.domain.game.poker
 
 
-@JsonCodec
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import mixzpoker.domain.game.GameSettings
+
+
 case class PokerSettings(
   playersCount: Int, maxPlayers: Int = 9, minPlayers: Int = 2,
   smallBlind: Int, bigBlind: Int, ante: Int,
@@ -31,4 +32,7 @@ object PokerSettings {
         buyInMin, buyInMax
       ))
   }
+
+  implicit val pokerSettingsEncoder: Encoder[PokerSettings] = deriveEncoder
+  implicit val pokerSettingsDecoder: Decoder[PokerSettings] = deriveDecoder
 }

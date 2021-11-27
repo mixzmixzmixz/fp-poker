@@ -6,6 +6,7 @@ import io.circe.generic.JsonCodec
 import io.circe.syntax._
 import io.circe.generic.auto._
 import mixzpoker.domain.Token
+import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.{EventId, GameId}
 import mixzpoker.game.poker.game.PokerGameEvent
 import mixzpoker.user.UserId

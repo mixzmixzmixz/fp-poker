@@ -8,8 +8,7 @@ import com.raquo.waypoint._
 import upickle.default._
 import laminar.webcomponents.material.{Icon, List, TopAppBarFixed}
 import mixzpoker.components.Users.AppUserProfile
-import mixzpoker.model.AppState
-import mixzpoker.model.AppState._
+import mixzpoker.AppState._
 import mixzpoker.pages._
 
 

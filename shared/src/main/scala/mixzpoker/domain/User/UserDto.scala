@@ -1,7 +1,7 @@
-package mixzpoker.dto
+package mixzpoker.domain.User
 
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 object UserDto {
 

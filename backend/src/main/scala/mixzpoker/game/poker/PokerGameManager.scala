@@ -9,6 +9,7 @@ import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import mixzpoker.domain.Token
+import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.poker.game.{PokerGame, PokerGameEvent}
 import mixzpoker.game.poker.game.PokerGameEvent._
 import mixzpoker.game.{GameError, GameId}

@@ -1,6 +1,7 @@
 package mixzpoker.game.poker
 
 import io.circe.generic.JsonCodec
+import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.core.Card
 import mixzpoker.game.poker.game.{PokerGame, Pot}
 

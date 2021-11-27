@@ -4,21 +4,21 @@ import com.raquo.laminar.api.L._
 import com.raquo.laminar.nodes.ReactiveHtmlElement
 import io.laminext.fetch.circe._
 import io.circe.syntax._
-import laminar.webcomponents.material.{Button, Dialog, Formfield, Icon, IconButton, Select, Textfield, List => MList}
-import mixzpoker.model.LobbyDto._
+import laminar.webcomponents.material.{Button, Dialog, Icon, IconButton, Select, Textfield, List => MList}
 import mixzpoker.{App, Config, Page}
-import mixzpoker.model.GameType
+import mixzpoker.domain.game.GameType
+import mixzpoker.domain.lobby.LobbyDto._
 import org.scalajs.dom
 import org.scalajs.dom.HTMLElement
 
 object LobbiesPage {
 
   object requests {
-    def getLobbiesRequest()(implicit token: String): EventStream[List[Lobby]] =
+    def getLobbiesRequest()(implicit token: String): EventStream[List[LobbyDto]] =
       Fetch.get(
           url = s"${Config.rootEndpoint}/lobby",
           headers = Map("Authorization" -> token)
-        ).decodeOkay[List[Lobby]]
+        ).decodeOkay[List[LobbyDto]]
         .recoverToTry.map(_.fold(
           err => {
             dom.console.log(err.toString)
@@ -39,7 +39,7 @@ object LobbiesPage {
 
   import requests._
 
-  def LobbyItem(lobby: Lobby): MList.ListItem.El = {
+  def LobbyItem(lobby: LobbyDto): MList.ListItem.El = {
     MList.ListItem(
       _ => cls("lobby-list-item"),
       _.`tabindex` := -1,

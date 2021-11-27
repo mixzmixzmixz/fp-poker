@@ -4,20 +4,20 @@ import com.raquo.laminar.api.L._
 import io.laminext.fetch.circe._
 import io.circe.syntax._
 import laminar.webcomponents.material.{Button, Dialog, Icon, Textfield, List => MList}
-import mixzpoker.model.GameSettings.PokerSettings
+import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.{App, Config, Page}
-import mixzpoker.model.LobbyDto.{JoinLobbyRequest, Lobby}
+import mixzpoker.domain.lobby.LobbyDto.{JoinLobbyRequest, LobbyDto}
 
 import scala.util.{Failure, Success, Try}
 
 object LobbyPage {
 
   object requests {
-    def getLobbyRequest(name: String)(implicit token: String): EventStream[Try[Lobby]] =
+    def getLobbyRequest(name: String)(implicit token: String): EventStream[Try[LobbyDto]] =
       Fetch.get(
         url = s"${Config.rootEndpoint}/lobby/$name",
         headers = Map("Authorization" -> token)
-      ).decodeOkay[Lobby].recoverToTry.map(_.map(_.data))
+      ).decodeOkay[LobbyDto].recoverToTry.map(_.map(_.data))
 
     def joinLobbyRequest(name: String, body: JoinLobbyRequest)(implicit token: String): EventStream[Try[String]] =
       Fetch.post(
@@ -90,7 +90,7 @@ object LobbyPage {
     )
   }
 
-  private def renderLobby(lobby: Lobby)(implicit token: String): HtmlElement = {
+  private def renderLobby(lobby: LobbyDto)(implicit token: String): HtmlElement = {
     val isSettingsDialogOpen = Var(false)
     val isJoinLobbyDialogOpen = Var(false)
     val errMsg = Var("")

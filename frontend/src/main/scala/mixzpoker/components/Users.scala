@@ -3,7 +3,7 @@ package mixzpoker.components
 import com.raquo.laminar.api.L._
 import io.laminext.syntax.core._
 import laminar.webcomponents.material.{Button, Icon, List, Menu}
-import mixzpoker.model.AppState
+import mixzpoker.AppState
 
 object Users {
 

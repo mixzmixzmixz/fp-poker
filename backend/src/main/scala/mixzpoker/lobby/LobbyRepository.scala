@@ -3,12 +3,10 @@ package mixzpoker.lobby
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import fs2.concurrent.{Queue, Topic}
-import mixzpoker.game.GameType
-import mixzpoker.game.poker.PokerSettings
 import mixzpoker.user.User
+import mixzpoker.domain.game.GameType
 import LobbyError._
-import mixzpoker.messages.lobby.{LobbyInputMessage, LobbyOutputMessage}
+import mixzpoker.domain.game.poker.PokerSettings
 
 
 trait LobbyRepository[F[_]] {
@@ -27,20 +25,17 @@ object LobbyRepository {
 
   def inMemory[F[_]: Sync]: F[LobbyRepository[F]] = for {
     store  <- Ref.of[F, Map[LobbyName, Lobby]](Map.empty)
-    topics <- Ref.of[F, Map[LobbyName, Topic[F, LobbyOutputMessage]]](Map.empty)
-    queues <- Ref.of[F, Map[LobbyName, Queue[F, LobbyInputMessage ]]](Map.empty)
   } yield new LobbyRepository[F] {
 
     override def create(name: String, owner: User, gameType: GameType): F[Unit] = for {
       lobbyName <- LobbyName.fromString(name).liftTo[F]
-      settings <- (gameType match {
+      settings  <- (gameType match {
                     case GameType.Poker => PokerSettings.create()
                   }).toRight(InvalidSettings).liftTo[F]
-      _ <- ensureDoesNotExist(lobbyName)
-      lobby = Lobby(lobbyName, owner, List(), gameType, settings)
-      _ <- save(lobby)
+      _         <- ensureDoesNotExist(lobbyName)
+      lobby     = Lobby(lobbyName, owner, List(), gameType, settings)
+      _         <- save(lobby)
     } yield ()
-
 
     override def list(): F[List[Lobby]] =
       store.get.map(_.values.toList)

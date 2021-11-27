@@ -15,13 +15,13 @@ import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{AuthedRoutes, Request, Response}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
-import mixzpoker.game.poker.PokerEvent.CreateGameEvent
-import mixzpoker.game.poker.PokerSettings
-import mixzpoker.game.{EventId, GameId, GameType}
+import mixzpoker.game.{EventId, GameId}
 import mixzpoker.infrastructure.broker.Broker
-import mixzpoker.messages.lobby.LobbyInputMessage
 import mixzpoker.user.User
+import mixzpoker.domain.game.GameType
+import mixzpoker.domain.game.poker.PokerSettings
+import mixzpoker.domain.lobby.{LobbyDto, LobbyInputMessage}
+import mixzpoker.game.poker.PokerEvent.CreateGameEvent
 
 
 class LobbyApi[F[_]: Sync: Logging](
@@ -30,40 +30,40 @@ class LobbyApi[F[_]: Sync: Logging](
   val dsl: Http4sDsl[F] = new Http4sDsl[F]{}
   import dsl._
 
+  object LobbyNameVar {
+    def unapply(name: String): Option[LobbyName] = LobbyName.fromString(name).toOption
+  }
+
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {
 
     case GET -> Root / "lobby" as user => getLobbies(user)
 
-    case GET -> Root / "lobby" / name as user => getLobby(name)
+    case GET -> Root / "lobby" / LobbyNameVar(name) as user => getLobby(name)
 
     case req @ POST -> Root / "lobby" / "create" as user =>  createLobby(req.req, user)
 
-    case req @ POST -> Root / "lobby" / name / "join" as user => joinLobby(req.req, name, user)
-
-    case req @ POST -> Root / "lobby" / name / "leave" as user => leaveLobby(req.req, name, user)
-
     case req @ POST -> Root / "lobby" / name / "start" as user => startGame(req.req, name, user)
 
-    case GET -> Root / "lobby" / name / "ws" as user => lobbyWS(name, user)
+    case GET -> Root / "lobby" / LobbyNameVar(name) / "ws" as user => lobbyWS(name, user)
   }
 
-  private def lobbyWS(name: String, user: User): F[Response[F]] = {
-
-    def processInput(queue: Queue[F, (LobbyInputMessage, User)])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
-      val parsedWebSocketInput: Stream[F, LobbyInputMessage] = wsfStream.collect {
-        case Text(text, _) =>
-          decode[LobbyInputMessage](text)
-            .leftMap(e => LobbyInputMessage.InvalidMessage(e.toString))
-            .merge
-
-        case Close(_) => LobbyInputMessage.Disconnect
+  private def lobbyWS(name: LobbyName, user: User): F[Response[F]] = {
+    def processInput(queue: Queue[F, LobbyEvent])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
+      val parsedWebSocketInput: Stream[F, LobbyEvent] = wsfStream.collect {
+        case Text(text, _) => decode[LobbyInputMessage](text).leftMap(_.toString)
+        case Close(_)      => "disconnected".asLeft[LobbyInputMessage]
+      }.evalMap {
+        case Left(err)  => info"$err".as(err.asLeft[LobbyInputMessage])
+        case Right(msg) => info"Event: Lobby=${name.value}, User=${user.toString}, message=${msg.toString}".as(msg.asRight[String])
+      }.collect {
+        case Right(msg) => LobbyEvent(user, name, msg)
       }
-      (Stream.emits(Seq()) ++ parsedWebSocketInput.map((_, user))).through(queue.enqueue)
+
+      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(queue.enqueue)
     }
 
     for {
-      lobbyName <- LobbyName.fromString(name).liftTo[F]
-      _         <- lobbyRepository.ensureExists(lobbyName)
+      _         <- lobbyRepository.ensureExists(name)
       toClient  = lobbyService.topic.subscribe(1000).map(msg => Text(msg.asJson.noSpaces))
       ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue))
     } yield ws
@@ -75,15 +75,14 @@ class LobbyApi[F[_]: Sync: Logging](
     for {
       _       <- info"Get lobbies req user:"
       lobbies <- lobbyRepository.list()
-      _       <- info"Get lobbies: ${lobbies.asJson.spaces2}"
-      resp    <- Ok(lobbies.asJson)
+      _       <- info"Get lobbies: ${lobbies.map(_.dto).asJson.spaces2}"
+      resp    <- Ok(lobbies.map(_.dto).asJson)
     } yield resp
   }
 
-  private def getLobby(name: String): F[Response[F]] = for {
-    lobbyName <- LobbyName.fromString(name).liftTo[F]
-    lobby     <- lobbyRepository.get(lobbyName)
-    resp      <- Ok(lobby.asJson)
+  private def getLobby(name: LobbyName): F[Response[F]] = for {
+    lobby     <- lobbyRepository.get(name)
+    resp      <- Ok(lobby.dto.asJson)
   } yield resp
 
   private def createLobby(request: Request[F], user: User): F[Response[F]] = for {
@@ -92,22 +91,6 @@ class LobbyApi[F[_]: Sync: Logging](
     resp <- Created()
   } yield resp
 
-  private def joinLobby(req: Request[F], name: String, user: User): F[Response[F]] = for {
-    request   <- req.decodeJson[LobbyDto.JoinLobbyRequest]
-    lobbyName <- LobbyName.fromString(name).liftTo[F]
-    lobby     <- lobbyRepository.get(lobbyName)
-    lobby2    <- lobby.joinPlayer(user, request.buyIn).liftTo[F]
-    _         <- lobbyRepository.save(lobby2)
-    resp      <- Ok()
-  } yield resp
-
-  private def leaveLobby(req: Request[F], name: String, user: User): F[Response[F]] = for {
-    lobbyName <- LobbyName.fromString(name).liftTo[F]
-    lobby <- lobbyRepository.get(lobbyName)
-    lobby2 <- lobby.leavePlayer(user).liftTo[F]
-    _ <- lobbyRepository.save(lobby2)
-    resp <- Ok()
-  } yield resp
 
   private def startGame(req: Request[F], name: String, user: User): F[Response[F]] = for {
     lobbyName <- LobbyName.fromString(name).liftTo[F]

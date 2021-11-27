@@ -1,4 +1,4 @@
-package mixzpoker.model
+package mixzpoker
 
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder

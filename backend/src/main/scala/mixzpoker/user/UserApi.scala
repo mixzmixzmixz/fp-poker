@@ -1,6 +1,5 @@
 package mixzpoker.user
 
-import cats.data.EitherT
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.Concurrent
@@ -19,17 +18,17 @@ class UserApi[F[_]: Sync: Concurrent](userRepository: UserRepository[F]) {
 //    case req @ POST -> Root / "user" / "create" as user => createUser(req.req)
   }
 
-  private def getUser(name: String): F[Response[F]] = (for {
-    user <- EitherT(userRepository.getUser(UserName(name)))
-    resp = Ok(user.dto.asJson)
-  } yield resp).leftMap(_ => NotFound()).merge.flatten
+  private def getUser(name: String): F[Response[F]] = for {
+    user <- userRepository.get(UserName(name))
+    resp <- Ok(user.dto.asJson)
+  } yield resp
 
 
   // todo smth for anonymous users
 //  private def createUser(req: Request[F]): F[Response[F]] = for {
 //    request <- req.decodeJson[UserDto.CreateUserRequest]
 //    user = User.newAnonymousUser(request.name)
-//    _ <- userRepository.saveUser(user)
+//    _ <- userRepository.save(user)
 //    resp <- Ok()
 //  } yield resp
 

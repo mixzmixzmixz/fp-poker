@@ -1,23 +1,22 @@
 package mixzpoker
 
-import org.http4s.implicits._
-import org.http4s.server.blaze.BlazeServerBuilder
-
-import scala.concurrent.ExecutionContext.global
 import cats.implicits._
 import cats.effect.{ConcurrentEffect, ExitCode, Timer}
 import cats.effect.concurrent.Ref
-import mixzpoker.auth.{AuthApi, AuthUserRepository}
-import mixzpoker.domain.lobby.LobbyInputMessage
-import mixzpoker.user.{UserApi, UserRepository}
-import mixzpoker.game.poker.{PokerApi, PokerApp}
-import mixzpoker.infrastructure.broker.Broker
-import mixzpoker.lobby.{LobbyApi, LobbyRepository, LobbyService}
+import org.http4s.implicits._
+import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.Router
 import org.http4s.server.middleware.{CORS, CORSConfig}
 import tofu.logging.Logging
 
+import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration.DurationInt
+
+import mixzpoker.auth.{AuthApi, AuthUserRepository}
+import mixzpoker.user.{UserApi, UserRepository}
+import mixzpoker.game.poker.{PokerApi, PokerApp}
+import mixzpoker.infrastructure.broker.Broker
+import mixzpoker.lobby.{LobbyApi, LobbyRepository, LobbyService}
 
 
 object HttpServer {
@@ -39,15 +38,16 @@ object HttpServer {
       fiber1 <- ConcurrentEffect[F].start(pokerApp.run)
       fiber2 <- ConcurrentEffect[F].start(lobbyService.run)
 
-      helloWorld = new HelloWorld(counter)
-      authApi    = new AuthApi(authUserRepo, userRepo)
-      userApi    = new UserApi(userRepo)
-      pokerApi   = new PokerApi(broker, pokerApp)
-      lobbyApi   = new LobbyApi[F](lobbyRepo, broker, lobbyService)
+      helloWorld = new HelloWorld[F](counter)
+      authApi    = new AuthApi[F](authUserRepo, userRepo)
+      userApi    = new UserApi[F](userRepo)
+      pokerApi   = new PokerApi[F](broker, pokerApp)
+      lobbyApi   = new LobbyApi[F](lobbyRepo, broker, lobbyService, authApi.getAuthUser)
 
       services =
-        authApi.routes <+>
         helloWorld.routes <+>
+        authApi.routes <+>
+        lobbyApi.routes <+>
         authApi.middleware(
           userApi.authedRoutes <+>
           pokerApi.authedRoutes <+>

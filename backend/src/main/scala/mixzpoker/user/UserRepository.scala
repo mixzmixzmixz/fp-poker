@@ -8,30 +8,24 @@ import UserError._
 
 
 trait UserRepository[F[_]] {
-  def getUser(name: UserName): F[ErrOr[User]]
-  def saveUser(user: User): F[ErrOr[Unit]]
+  def get(name: UserName): F[User]
+  def save(user: User): F[Unit]
 
-  def checkUserAlreadyExist(name: UserName): F[ErrOr[Unit]]
+  def checkUserAlreadyExist(name: UserName): F[Unit]
 }
-
 
 object UserRepository {
   def inMemory[F[_]: Sync]: F[UserRepository[F]] = for {
-    store <- Ref.of[F, Map[UserName, User]](Map())
+    store <- Ref.of[F, Map[UserName, User]](Map.empty)
   } yield new UserRepository[F] {
-    override def getUser(name: UserName): F[ErrOr[User]] = for {
-      map <- store.get
-      user = map.get(name).toRight(NoSuchUser(name))
-    } yield user
+    override def get(name: UserName): F[User] =
+      store.get.flatMap(_.get(name).toRight(NoSuchUser(name)).liftTo[F])
 
-    override def saveUser(user: User): F[ErrOr[Unit]] = for {
-      _ <- store.update { _.updated(user.name, user) }
-    } yield Right(())
+    override def save(user: User): F[Unit] =
+      store.update { _.updated(user.name, user) }
 
-    override def checkUserAlreadyExist(name: UserName): F[ErrOr[Unit]] = for {
-      map <- store.get
-      check = if (map.contains(name)) Left(UserAlreadyExist(name)) else Right(())
-    } yield check
+    override def checkUserAlreadyExist(name: UserName): F[Unit] =
+      store.get.map(m => Either.cond(m.contains(name), (), UserAlreadyExist(name)).liftTo[F])
   }
 
 }

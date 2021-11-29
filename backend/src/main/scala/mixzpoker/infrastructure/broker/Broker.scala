@@ -1,7 +1,6 @@
 package mixzpoker.infrastructure.broker
 
 import cats.implicits._
-import cats.data.EitherT
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import fs2.concurrent.Queue

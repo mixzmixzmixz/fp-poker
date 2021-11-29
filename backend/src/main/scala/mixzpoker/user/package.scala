@@ -14,9 +14,9 @@ package object user {
   object UserId {
     def fromRandom: UserId = UserId(Random.nextInt(100000) + 1)
 
-    def fromString(str: String): Option[UserId] = for {
-      x <- str.toIntOption
-    } yield UserId(x)
+    def fromString(str: String): Option[UserId] =
+      str.toIntOption.map(UserId(_))
+
 
     implicit val encoderUserId: Encoder[UserId] =
       Encoder[String].contramap(a => a.toString)
@@ -25,7 +25,9 @@ package object user {
       Decoder[String].emap(s => UserId.fromString(s).toRight("wrong userId"))
   }
 
-  case class UserName(value: String) extends AnyVal
+  case class UserName(value: String) extends AnyVal {
+    override def toString: String = value
+  }
 
   case class UserPassword(value: String) extends AnyVal
 

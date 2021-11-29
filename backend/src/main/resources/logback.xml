@@ -1,0 +1,28 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %d{HH:mm:ss.SSS} %-5level [%thread] %logger{128} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <root level="DEBUG">
+        <appender-ref ref="STDOUT" />
+    </root>
+    <!-- limit spamming of `http4s` internals -->
+    <logger name="org.http4s.blaze.channel.nio1.NIO1HeadStage" level="info"/>
+    <logger name="org.http4s.blaze.channel.nio1.SelectorLoop" level="warn"/>
+    <logger name="org.http4s.blaze.channel.nio1.NIO1SocketServerGroup" level="warn"/>
+    <logger name="org.http4s.blaze.channel.nio2.ByteBufferHead" level="info"/>
+    <logger name="org.http4s.blaze.pipeline.stages.SSLStage" level="info"/>
+    <logger name="org.http4s.blazecore.IdleTimeoutStage" level="info"/>
+    <logger name="org.http4s.blazecore.websocket.Http4sWSStage" level="info"/>
+    <logger name="org.http4s.blazecore.ResponseHeaderTimeoutStage" level="info"/>
+    <logger name="org.http4s.blaze.client.PoolManager" level="warn"/>
+    <logger name="org.http4s.blaze.client.Http1Connection" level="info"/>
+    <logger name="org.http4s.blaze.server.Http1ServerStage" level="info"/>
+    <logger name="org.http4s.server.blaze.Http1ServerStage" level="info"/>
+    <logger name="org.http4s.blaze.server.WebSocketDecoder" level="info"/>
+    <logger name="org.http4s.blaze.server.WSFrameAggregator" level="info"/>
+</configuration>

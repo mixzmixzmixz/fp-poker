@@ -1,8 +1,9 @@
 package mixzpoker.auth
 
+import mixzpoker.AppError
 import mixzpoker.user.UserError
 
-sealed trait AuthError
+sealed trait AuthError extends AppError
 
 object AuthError {
   type ErrOr[A] = Either[AuthError, A]

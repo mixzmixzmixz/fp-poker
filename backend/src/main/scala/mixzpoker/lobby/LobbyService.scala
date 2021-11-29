@@ -34,12 +34,13 @@ object LobbyService {
       val keepAlive = Stream.awakeEvery[F](30.seconds).map(_ => KeepAlive).through(topic.publish)
       val processingStream = queue.dequeue.evalMap(process).through(topic.publish)
 
-      Stream(keepAlive, processingStream).parJoinUnbounded.compile.drain
+      info"LobbyService started!" *> Stream(keepAlive, processingStream).parJoinUnbounded.compile.drain
     }
 
     def process(event: LobbyEvent): F[LobbyOutputMessage] = event.message match {
-      case Join(buyIn) => joinLobby(event.lobbyName, event.user, buyIn)
-      case Leave       => leaveLobby(event.lobbyName, event.user)
+      case Join(buyIn)          => joinLobby(event.lobbyName, event.user, buyIn)
+      case Leave                => leaveLobby(event.lobbyName, event.user)
+      case ChatMessage(message) => chat(message, event.user)
     }
 
     def joinLobby(lobbyName: LobbyName, user: User, buyIn: Token): F[LobbyOutputMessage] = for {
@@ -53,5 +54,8 @@ object LobbyService {
       lobby2 <- lobby.leavePlayer(user).liftTo[F]
       _      <- repository.save(lobby2)
     } yield LobbyState(lobby = lobby2.dto)
+
+    def chat(message: String, user: User): F[LobbyOutputMessage] =
+      (ChatMessageFrom(message, user.dto): LobbyOutputMessage).pure[F]
   }
 }

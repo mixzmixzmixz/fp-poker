@@ -5,18 +5,22 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
 import mixzpoker.domain.game.{GameSettings, GameType}
-import mixzpoker.domain.User.UserDto.UserDto
+import mixzpoker.domain.user.UserDto.UserDto
 
 object LobbyDto {
   @JsonCodec
   case class CreateGameResponse(id: String)
 
-  case class PlayerDto(user: UserDto, buyIn: Int)
+  case class PlayerDto(user: UserDto, buyIn: Int, ready: Boolean)
 
   case class CreateLobbyRequest(name: String, gameType: GameType)
 
   case class LobbyDto(
-    name: String, owner: UserDto, users: List[PlayerDto], gameType: GameType, gameSettings: GameSettings
+    name: String,
+    owner: UserDto,
+    players: List[PlayerDto],
+    gameType: GameType,
+    gameSettings: GameSettings
   )
 
   implicit val playerDecoder: Decoder[PlayerDto] = deriveDecoder

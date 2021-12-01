@@ -8,8 +8,8 @@ import mixzpoker.domain.Token
 import mixzpoker.domain.lobby.LobbyOutputMessage
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import scala.concurrent.duration._
+
 import mixzpoker.domain.lobby.LobbyOutputMessage._
 import mixzpoker.domain.lobby.LobbyInputMessage._
 import mixzpoker.user.User
@@ -31,17 +31,44 @@ object LobbyService {
     override def queue: Queue[F, LobbyEvent] = _queue
 
     override def run: F[Unit] = {
-      val keepAlive = Stream.awakeEvery[F](30.seconds).map(_ => KeepAlive).through(topic.publish)
-      val processingStream = queue.dequeue.evalMap(process).through(topic.publish)
+      val keepAlive = Stream
+        .awakeEvery[F](30.seconds)
+        .map(_ => KeepAlive)
+        .through(topic.publish)
+
+      val processingStream = queue
+        .dequeue
+        .evalMap(process)
+        .collect { case Some(x) => x }
+        .through(topic.publish)
 
       info"LobbyService started!" *> Stream(keepAlive, processingStream).parJoinUnbounded.compile.drain
     }
 
-    def process(event: LobbyEvent): F[LobbyOutputMessage] = event.message match {
-      case Join(buyIn)          => joinLobby(event.lobbyName, event.user, buyIn)
-      case Leave                => leaveLobby(event.lobbyName, event.user)
-      case ChatMessage(message) => chat(message, event.user)
+    def process(event: LobbyEvent): F[Option[LobbyOutputMessage]] = {
+      for {
+        _   <- info"Receive an event: ${event.toString}"
+        msg <- event.message match {
+//          case Register(_)          => none[LobbyOutputMessage] //
+          case Join(buyIn)          => joinLobby(event.lobbyName, event.user, buyIn)
+          case Leave                => leaveLobby(event.lobbyName, event.user)
+          case Ready                => updatePlayerReadiness(event.lobbyName, event.user, readiness = false)
+          case NotReady             => updatePlayerReadiness(event.lobbyName, event.user, readiness = true)
+          case ChatMessage(message) => chat(message, event.user)
+        }
+        _   <- info"Response with msg: ${msg.toString}"
+      } yield msg.some
+    }.handleErrorWith { err =>
+//      errorCause"Error occured!"(err).as(none[LobbyOutputMessage])
+      error"Error occured! ${err.toString}".as(none[LobbyOutputMessage])
     }
+
+    def updatePlayerReadiness(lobbyName: LobbyName, user: User, readiness: Boolean): F[LobbyOutputMessage] = for {
+      lobby  <- repository.get(lobbyName)
+      lobby2 <- lobby.updatePlayerReadiness(user, readiness).liftTo[F]
+      _      <- repository.save(lobby2)
+    } yield LobbyState(lobby = lobby2.dto)
+
 
     def joinLobby(lobbyName: LobbyName, user: User, buyIn: Token): F[LobbyOutputMessage] = for {
       lobby  <- repository.get(lobbyName)

@@ -23,6 +23,7 @@
     <logger name="org.http4s.blaze.client.Http1Connection" level="info"/>
     <logger name="org.http4s.blaze.server.Http1ServerStage" level="info"/>
     <logger name="org.http4s.server.blaze.Http1ServerStage" level="info"/>
+    <logger name="org.http4s.server.middleware.CORS" level="warn"/>
     <logger name="org.http4s.blaze.server.WebSocketDecoder" level="info"/>
     <logger name="org.http4s.blaze.server.WSFrameAggregator" level="info"/>
 </configuration>

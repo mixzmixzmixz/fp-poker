@@ -3,7 +3,7 @@ package mixzpoker.domain.lobby
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe._
 import io.circe.syntax._
-import mixzpoker.domain.User.UserDto.UserDto
+import mixzpoker.domain.user.UserDto.UserDto
 import mixzpoker.domain.lobby.LobbyDto.LobbyDto
 
 sealed trait LobbyOutputMessage

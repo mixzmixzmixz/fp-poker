@@ -9,18 +9,26 @@ import upickle.default._
 import laminar.webcomponents.material.{Icon, List, TopAppBarFixed}
 import mixzpoker.components.Users.AppUserProfile
 import mixzpoker.AppState._
+import mixzpoker.components.Dialogs.ErrorDialog
+import mixzpoker.domain.user.UserDto.UserDto
 import mixzpoker.pages._
 
 
 object App {
   val storedAuthToken: StoredString = storedString("authToken", "")
-  val endpointUserInfo = s"${Config.rootEndpoint}/auth/me"
-  val appStateVar: Var[AppState] = Var[AppState](AppNotLoaded)
+  val endpointUserInfo              = s"${Config.rootEndpoint}/auth/me"
+  val appStateVar: Var[AppState]    = Var[AppState](NotLoaded)
+  val errorVar: Var[AppError]       = Var(AppError.NoError)
+  val appUser: Var[UserDto]         = Var(UserDto(name = "--", tokens = 0))
 
   object requests {
     def getUserInfo(token: String): EventStream[AppState] = Fetch
-      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[AppUserInfo]
-      .recoverToTry.map(_.fold(_ => Unauthorized, _.data))
+      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[UserDto]
+      .recoverToTry
+      .map(_.fold(_ => Unauthorized, resp => {
+        appUser.set(resp.data)
+        Authorized
+      }))
   }
 
   import requests._
@@ -56,40 +64,30 @@ object App {
       .collectStatic(Page.Redirect) { AuthFence(renderRedirectPage)                  }
       .collectSignal[Page.AppPage]  { $appPage => AuthFence(renderAppPage($appPage)) }
 
-  val route: Div = div(child <-- splitter.$view)
+  val route: Div = div(height := "100%", width := "100%", child <-- splitter.$view)
 
   def AuthFence(page: String => HtmlElement): HtmlElement =
     div(
+      height := "100%", width := "100%",
       onMountBind(_ => storedAuthToken.signal.flatMap(token => getUserInfo(token)) --> appStateVar),
-      child <-- storedAuthToken.signal.map { token =>
-        div(
-          child <-- appStateVar.signal.map {
-            case AppState.AppNotLoaded => appNotLoaded()
-            case AppState.Unauthorized =>
-              router.pushState(Page.SignIn)
-              div("Unauthorized <redirect to SignIn Page>")
-            case appUserInfo: AppUserInfo => page(token)
-          }
-        )
+      child <-- storedAuthToken.signal.combineWith(appStateVar.signal).map {
+        case (_, AppState.NotLoaded)      => appNotLoaded()
+        case (_, AppState.Unauthorized)   =>
+          router.pushState(Page.SignIn)
+          div("Unauthorized <redirect to SignIn Page>")
+        case (token, AppState.Authorized) => page(token)
       }
-
     )
 
   def NoAuthFence(page: => HtmlElement): HtmlElement =
     div(
-      onMountBind(_ => storedAuthToken.signal.flatMap(token => getUserInfo(token)) --> appStateVar),
-      child <-- storedAuthToken.signal.map { token =>
-        div(
-          child <-- appStateVar.signal.map {
-            case AppState.AppNotLoaded => appNotLoaded()
-            case AppState.Unauthorized => page
-            case appUserInfo: AppUserInfo =>
-              router.pushState(Page.Lobbies)
-              div("Unauthorized <redirect to Main Page>")
-          }
-        )
+      child <-- appStateVar.signal.map {
+        case AppState.NotLoaded    => appNotLoaded()
+        case AppState.Unauthorized => page
+        case AppState.Authorized   =>
+          router.pushState(Page.Lobbies)
+          div("Unauthorized <redirect to Main Page>")
       }
-
     )
 
   private def appNotLoaded(): HtmlElement = div("Loading App...")
@@ -101,50 +99,39 @@ object App {
 
   private def renderAppPage($appPage: Signal[Page.AppPage])(token: String): HtmlElement = {
     implicit val authToken: String = token
+
     val appPageSplitter = SplitRender[Page.AppPage, HtmlElement]($appPage)
       .collectStatic(Page.Lobbies) { LobbiesPage() }
       .collectStatic(Page.Games)   { GamesPage() }
-      .collectSignal[Page.Lobby]   { $lobbyPage => LobbyPage($lobbyPage)}
+      .collectSignal[Page.Lobby]   { $lobbyPage => LobbyPage($lobbyPage, appUser.signal) }
 
     val buttonsSplitter = SplitRender[Page.AppPage, HtmlElement]($appPage)
       .collectStatic(Page.Lobbies) { LobbiesPage.controlButtons() }
       .collectStatic(Page.Games)   { GamesPage.controlButtons() }
-      .collectSignal[Page.Lobby]   { _ => LobbyPage.controlButtons()}
+      .collectSignal[Page.Lobby]   { _ => LobbyPage.controlButtons() }
 
-
-    div(
-      TopAppBarFixed(
-        _.`centerTitle` := true,
-        _.`dense` := true,
-        _.slots.title(div("MixzPoker")),
-        _.slots.navigationIcon(div(
-          cls("logo"),
-          img(src("frontend/src/main/static/logo.svg"), heightAttr(100))
-        )),
-        _.slots.actionItems(
-          div(
-            child <-- buttonsSplitter.$view
-          ),
-          AppUserProfile(appStateVar, storedAuthToken)
-        ),
-        _.slots.default(
-          div(
-            cls := "mixz-container",
-            background := "#bbf1ee",
-            padding := "0",
-            flexDirection.row,
-            height := "100%",
-            width := "100%",
-            LeftNavigation(),
-            child <-- appPageSplitter.$view
-          )
+    TopAppBarFixed(
+      _.`centerTitle` := true,
+      _.`dense` := true,
+      _.slots.title(div("MixzPoker")),
+      _.slots.navigationIcon(div(cls := "logo", img(src := "frontend/src/main/static/logo.svg", heightAttr := 80))),
+      _.slots.actionItems(
+        div(child <-- buttonsSplitter.$view),
+        AppUserProfile(appStateVar, appUser.signal, storedAuthToken)
+      ),
+      _.slots.default(
+        div(
+          cls := "base-app-container",
+          LeftNavigation(),
+          ErrorDialog(errorVar),
+          child <-- appPageSplitter.$view
         )
       )
     )
   }
 
   private def LeftNavigation(): HtmlElement = {
-    div(List(
+    List(
       _ => idAttr("left-nav-list"),
       _ => cls("mixz-left-panel"),
       _.slots.default(
@@ -166,7 +153,7 @@ object App {
           _ => onClick --> { _ => router.pushState(Page.Games)}
         )
       )
-    ))
+    )
   }
 
 

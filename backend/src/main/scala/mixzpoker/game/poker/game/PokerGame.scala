@@ -7,6 +7,7 @@ import mixzpoker.game.poker.PokerError._
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.poker.player.PokerPlayer
+import mixzpoker.lobby.Player
 import mixzpoker.user.UserId
 
 
@@ -58,10 +59,10 @@ case class PokerGame(
 
 object PokerGame {
 
-  def create(gameId: GameId, settings: PokerSettings, users: List[(UserId, Token)]): ErrOr[PokerGame] = {
-    val players = users.zipWithIndex.map { case ((userId, buyIn), i) => PokerPlayer.fromUser(userId, buyIn, i)}
+  def create(gameId: GameId, settings: PokerSettings, players: List[Player]): ErrOr[PokerGame] = {
+    val _players = players.zipWithIndex.map { case (p, i) => PokerPlayer.fromUser(p.user.id, p.buyIn, i) }
     for {
-      table <- PokerTable.fromPlayers(players, size = settings.playersCount)
+      table <- PokerTable.fromPlayers(_players, size = settings.playersCount)
       game = PokerGame(
         id = gameId,
         table = table,

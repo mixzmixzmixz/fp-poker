@@ -2,7 +2,7 @@ package mixzpoker.user
 
 import mixzpoker.domain.Token
 import mixzpoker.user.UserError._
-import mixzpoker.domain.User.UserDto._
+import mixzpoker.domain.user.UserDto._
 
 sealed trait User {
   def id: UserId
@@ -12,6 +12,11 @@ sealed trait User {
 
   def dto: UserDto
   def checkPassword(password: String): ErrOr[Unit]
+
+  override def equals(obj: Any): Boolean = obj match {
+    case u: User => name.value == u.name.value
+    case _       => false
+  }
 }
 
 object User {

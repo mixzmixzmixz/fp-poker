@@ -1,4 +1,4 @@
-package mixzpoker.domain.User
+package mixzpoker.domain.user
 
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}

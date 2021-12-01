@@ -4,19 +4,16 @@ import com.raquo.laminar.api.L._
 import io.laminext.syntax.core._
 import laminar.webcomponents.material.{Button, Icon, List, Menu}
 import mixzpoker.AppState
+import mixzpoker.domain.user.UserDto.UserDto
 
 object Users {
 
-  def AppUserProfile(appStateVar: Var[AppState], storedAuthToken: StoredString): HtmlElement = {
+  def AppUserProfile(appState: Var[AppState], $appUser: Signal[UserDto], storedAuthToken: StoredString): HtmlElement = {
     val menuOpened = Var(false)
     val button = Button(
       _.`raised` := true,
       _.slots.icon(Icon().amend(textToNode("account_circle"))),
-      _.`label` <-- appStateVar.signal.map {
-        case AppState.AppNotLoaded => "..."
-        case AppState.Unauthorized => "Unknown"
-        case AppState.AppUserInfo(_, name, _) => name
-      },
+      _.`label` <-- $appUser.map(_.name),
       _.styles.buttonOutlineColor := "#6200ed",
       _ => onClick --> menuOpened.toggleObserver,
       _ => width := "200px"
@@ -38,20 +35,13 @@ object Users {
             _.slots.graphic(Icon().amend(textToNode("account_circle"))),
             _.slots.default(
               span(
-                child.text <-- appStateVar.signal.map {
-                  case AppState.AppNotLoaded => "..."
-                  case AppState.Unauthorized => "Unknown"
-                  case AppState.AppUserInfo(_, name, _) => name
-                },
+                child.text <-- $appUser.map(_.name),
                 cls("menu-txt")
               )
             ),
             _.slots.secondary(
               span(
-                child.text <-- appStateVar.signal.map {
-                  case AppState.AppUserInfo(_, _, b) => s"Balance: $b"
-                  case _ => "0"
-                },
+                child.text <-- $appUser.map(user => s"Balance: ${user.tokens}"),
                 cls("menu-txt")
               )
             ),
@@ -66,7 +56,7 @@ object Users {
                 _.`dense` := true,
                 _ => onClick --> {_ =>
                   storedAuthToken.set("")
-                  appStateVar.set(AppState.Unauthorized)
+                  appState.set(AppState.Unauthorized)
                 }
               )
             )

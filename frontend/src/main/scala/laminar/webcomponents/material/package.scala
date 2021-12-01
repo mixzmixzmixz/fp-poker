@@ -82,7 +82,7 @@ package laminar.webcomponents.material {
 
   /** mwc-button
    *
-   * Buttons allow users to take actions, and make choices, with a single tap.
+   * Buttons allow players to take actions, and make choices, with a single tap.
    *
    * {@literal @material/mwc-button@0.25.3}
    *
@@ -791,7 +791,7 @@ package laminar.webcomponents.material {
 
   /** mwc-dialog
    *
-   * Dialogs inform users about a task and can contain critical information, require decisions, or involve multiple tasks.
+   * Dialogs inform players about a task and can contain critical information, require decisions, or involve multiple tasks.
    *
    * {@literal @material/mwc-dialog@0.25.3}
    *
@@ -1751,7 +1751,7 @@ package laminar.webcomponents.material {
 
   /** mwc-icon-button
    *
-   * Icon buttons allow users to take actions, and make choices, with a single tap.
+   * Icon buttons allow players to take actions, and make choices, with a single tap.
    *
    * {@literal @material/mwc-icon-button@0.25.3}
    *
@@ -2294,7 +2294,7 @@ package laminar.webcomponents.material {
 
   /** mwc-slider
    *
-   * Sliders allow users to make selections from a range of values.
+   * Sliders allow players to make selections from a range of values.
    *
    * {@literal @material/mwc-slider@0.25.3}
    *
@@ -4078,7 +4078,7 @@ package laminar.webcomponents.material {
 
   /** mwc-textfield
    *
-   * Text fields let users enter and edit text.
+   * Text fields let players enter and edit text.
    *
    * {@literal @material/mwc-textfield@0.25.3}
    *
@@ -4621,7 +4621,7 @@ package laminar.webcomponents.material {
 
   /** mwc-textarea
    *
-   * Text areas let users enter and edit text.
+   * Text areas let players enter and edit text.
    *
    * {@literal @material/mwc-textarea@0.25.3}
    *

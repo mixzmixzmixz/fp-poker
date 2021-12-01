@@ -13,6 +13,8 @@ object LobbyInputMessage {
   case class Register(token: String) extends LobbyInputMessage
   case class Join(buyIn: Token) extends LobbyInputMessage
   case object Leave extends LobbyInputMessage
+  case object Ready extends LobbyInputMessage
+  case object NotReady extends LobbyInputMessage
   case class ChatMessage(message: String) extends LobbyInputMessage
 
 
@@ -28,6 +30,8 @@ object LobbyInputMessage {
   implicit val limDecoder: Decoder[LobbyInputMessage] = (c: HCursor) => c.downField("type").as[String].flatMap {
     case "Register"    => c.downField("params").as[Register]
     case "Leave"       => Right(Leave)
+    case "Ready"       => Right(Ready)
+    case "NotReady"    => Right(NotReady)
     case "Join"        => c.downField("params").as[Join]
     case "ChatMessage" => c.downField("params").as[ChatMessage]
     case _             => Left(DecodingFailure("Invalid message type", List()))
@@ -36,6 +40,8 @@ object LobbyInputMessage {
   implicit val limEncoder: Encoder[LobbyInputMessage] = Encoder.instance {
     case a: Register    => Json.obj("type" -> Json.fromString("Register"), "params" -> a.asJson)
     case Leave          => Json.obj("type" -> Json.fromString("Leave"))
+    case Ready          => Json.obj("type" -> Json.fromString("Ready"))
+    case NotReady       => Json.obj("type" -> Json.fromString("NotReady"))
     case a: Join        => Json.obj("type" -> Json.fromString("Join"), "params" -> a.asJson)
     case a: ChatMessage => Json.obj("type" -> Json.fromString("ChatMessage"), "params" -> a.asJson)
   }

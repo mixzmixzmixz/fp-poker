@@ -23,8 +23,8 @@ html {
 }
 
 body {
-    height: 100%;
-    width: 100%;
+    height: 100vh;
+    width: 100vw;
     margin: 0px;
     font-size: 8pt;
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -48,7 +48,25 @@ mwc-list {
     --mdc-theme-primary: blue;
     --mdc-list-inset-margin: 0px;
     --mdc-theme-text-primary-on-background: #b71c1c;
-    border: 1px solid #d3d3d3;
     max-width: 400px;
     margin-bottom: 8px;
+    width: auto;
+}
+
+div {
+}
+
+.root-cls {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: stretch;
+}
+
+mwc-top-app-bar-fixed {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
 }

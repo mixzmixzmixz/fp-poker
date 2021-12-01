@@ -24,10 +24,10 @@ class UserApi[F[_]: Sync: Concurrent](userRepository: UserRepository[F]) {
   } yield resp
 
 
-  // todo smth for anonymous users
+  // todo smth for anonymous players
 //  private def createUser(req: Request[F]): F[Response[F]] = for {
 //    request <- req.decodeJson[UserDto.CreateUserRequest]
-//    user = User.newAnonymousUser(request.name)
+//    user = user.newAnonymousUser(request.name)
 //    _ <- userRepository.save(user)
 //    resp <- Ok()
 //  } yield resp

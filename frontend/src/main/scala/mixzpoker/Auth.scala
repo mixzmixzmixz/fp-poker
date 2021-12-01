@@ -7,7 +7,7 @@ import io.laminext.core.StoredString
 import laminar.webcomponents.material.{Button, Textfield}
 import mixzpoker.App.router
 import mixzpoker.components.Navigation._
-import mixzpoker.domain.User.UserDto._
+import mixzpoker.domain.user.UserDto._
 
 
 object Auth {

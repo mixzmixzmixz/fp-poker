@@ -7,13 +7,13 @@ import cats.implicits._
 import io.circe.syntax._
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.poker.game.{PokerGame, PokerGameEvent}
 import mixzpoker.game.poker.game.PokerGameEvent._
 import mixzpoker.game.{GameError, GameId}
 import mixzpoker.infrastructure.broker.Broker
+import mixzpoker.lobby.Player
 import mixzpoker.user.UserId
 
 
@@ -26,10 +26,10 @@ trait PokerGameManager[F[_]] {
 
 object PokerGameManager {
   def create[F[_]: Sync: Logging](
-    gameId: GameId, settings: PokerSettings, users: List[(UserId, Token)], broker: Broker[F]
+    gameId: GameId, settings: PokerSettings, players: List[Player], broker: Broker[F]
   ): EitherT[F, GameError, PokerGameManager[F]] =
     for {
-      _game <- EitherT.fromEither[F](PokerGame.create(gameId, settings, users))
+      _game <- EitherT.fromEither[F](PokerGame.create(gameId, settings, players))
       gameRef <- EitherT.right[GameError](Ref.of[F, PokerGame](_game))
     } yield new PokerGameManager[F] {
       override def id: GameId = gameId

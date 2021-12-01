@@ -1,19 +1,26 @@
-.mixz-panel-simple {
-    border-radius: 8px;
-    box-shadow: 0 0 15px 1px rgba(0,0,0,0.5);
-    background-color: #383b42;
-    background: linear-gradient(125deg, #3d4148, #30333a);
-    box-shadow: 0 0 15px 3px rgba(255,255,255,0.1);
-    width: 360px;
-    min-height: 400px;
-    overflow: hidden;
+.base-app-container {
+    height: 100%;
+    width: 100vw;
+    background: #bbf1ee;
+    position: relative;
     display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    overflow: auto;
+    flex: 0 0 auto;
+    flex-direction: row;
     box-sizing: border-box;
-    font-family: 'Roboto', sans-serif;
-    padding: 15px;
+    align-self: stretch !important;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.mixz-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: row;
+    box-sizing: border-box;
+    align-self: stretch !important;
 }
 
 .mixz-container-simple {
@@ -32,75 +39,6 @@
 
 }
 
-.mixz-field-text {
-    margin-top: 0em;
-    font-style: normal;
-    font-weight: 400;
-    font-size: 11px;
-    font-family: system-ui;
-    font-variant-caps: normal;
-    color: initial;
-    letter-spacing: normal;
-    word-spacing: normal;
-    line-height: normal;
-    text-transform: none;
-    text-indent: 0px;
-    text-shadow: none;
-    display: inline-block;
-    text-align: start;
-
-    padding-top: 1px;
-    -webkit-rtl-ordering: logical;
-    -webkit-user-select: text;
-    -webkit-appearance: textfield;
-
-    background-color: transparent !important;
-    border-top: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-radius: 0 !important;
-    border-bottom: 2px solid #646a77 !important;
-    box-shadow: none !important;
-    color: #fff !important;
-    font-size: 15px !important;
-    color: #f4f4f4 !important;
-    height: 30px !important;
-    padding: 0 !important;
-    transition: all .1s ease-out;
-
-    min-width: 40px;
-    font: normal 12px/18px tahoma, arial, verdana, sans-serif;
-    padding: 2px 3px;
-    background-color: #fff;
-    border: 1px solid #b5b8c8;
-    border-radius: 2px;
-    outline: none;
-    box-shadow: inset 0 1px 3px rgba(30,30,30,.1);
-    box-sizing: border-box;
-    height: 24px;
-    width: 100%;
-
-    flex: 0 0 auto;
-    cursor: auto;
-}
-
-.mixz-field-label {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    width: 100px;
-    font: normal 12px/14px Tahoma, Ubuntu, sans-serif;
-    padding: 5px 5px 5px 0;
-    box-sizing: border-box;
-    margin: 0;
-    font-size: 15px;
-    color: #9ea3af;
-    width: 100%;
-    padding: 5px 0;
-    flex-direction: row;
-    margin: auto 0 10px 0 !important;
-}
-
 .mixz-auth-head {
     flex-direction: row;
     align-items: center;
@@ -111,20 +49,6 @@
     font-weight: 700;
 }
 
-.mixz-container {
-    position: relative;
-    display: flex;
-    flex: 0 0 auto;
-    flex-direction: row;
-    height: 100%;
-    width: 100%;
-    box-sizing: border-box;
-    -webkit-user-drag: none;
-    overflow: visible;
-    white-space: pre;
-    overflow: auto;
-    align-self: auto !important;
-}
 
 .mixz-panel-auth {
     display: flex;
@@ -169,6 +93,8 @@
     width: auto;
     height: 100%;
     background: #8e87e2;
+
+    border-right: 1px solid #d3d3d3;
 }
 
 .mixz-panel-text {
@@ -180,6 +106,14 @@
     color: #fff;
 }
 
+.lobby-container {
+    display: flex;
+    flex-direction: column;
+    flex-flow: column;
+    height: 100%;
+    width: 100%;
+}
+
 .lobby-list-item {
     padding-left: 10px;
     border: none;
@@ -189,9 +123,14 @@
     position: relative;
 }
 
+.lobby-heading-btns {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
 .lobby-heading-btn {
-    float: right;
-    margin-left:  auto;
+    display: flex;
     margin-right: 10px;
     max-width: 150px;
 }
@@ -199,6 +138,10 @@
 .lobby-heading {
     display: flex;
     padding: 20px;
+    position: relative;
+    flex-direction: row;
+    flex: 0 1 auto;
+    justify-content: space-around;
 
     border-bottom-width: 1px;
     border-bottom-style: solid;
@@ -206,6 +149,7 @@
 }
 
 .lobby-heading-name {
+    display: flex;
     color: #961296;
     font-size: 36px;
 }
@@ -217,10 +161,54 @@
 .lobby-main {
     display: flex;
     height: 100%;
-    width: 80%;
+    width: 100%;
     border-right-width: 1px;
     border-right-style: solid;
     border-right-color: rgba(0, 0, 0, 0.12);
+}
+
+.lobby-game-area {
+    display: flex;
+    flex: 1 1 auto;
+
+}
+
+.lobby-chat-area {
+    display: flex;
+    flex: 0 1 300px;
+    padding: 20px;
+    background: #fff;
+}
+
+.lobby-chat-messages {
+    display: flex;
+    padding: 10px;
+}
+
+.lobby-chat-buttons {
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.lobby-chat-send-field {
+    padding: 20px;
+    width: 100%;
+}
+
+.lobby-chat-send-btn {
+    display: flex;
+    justify-content: center;
+}
+
+.lobby-players {
+    width: auto;
+    min-width: 200px;
+}
+
+.lobby-player {
+    width: 200px;
 }
 
 h1 {

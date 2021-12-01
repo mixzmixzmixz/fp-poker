@@ -48,7 +48,7 @@ object LobbiesPage {
       _.`hasMeta` := true,
       _.slots.graphic(Icon().amend(span("groups"))),
       _.slots.default(span(lobby.name)),
-      _.slots.secondary(span(s"${lobby.gameType}   ${lobby.users.length} / ${lobby.gameSettings.maxPlayers}")),
+      _.slots.secondary(span(s"${lobby.gameType}   ${lobby.players.length} / ${lobby.gameSettings.maxPlayers}")),
       _.slots.meta(IconButton(_.`icon` := "groups")),
       _ => onClick --> { _ => App.router.pushState(Page.Lobby(lobby.name)) }
     )

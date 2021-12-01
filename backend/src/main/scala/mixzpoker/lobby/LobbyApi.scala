@@ -53,6 +53,7 @@ class LobbyApi[F[_]: Sync: Logging](
   private def lobbyWS(name: LobbyName): F[Response[F]] = {
     def processInput(queue: Queue[F, LobbyEvent], userRef: Ref[F, Option[User]])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
+
       val parsedWebSocketInput: Stream[F, LobbyEvent] = wsfStream.collect {
         case Text(text, _) => decode[LobbyInputMessage](text).leftMap(_.toString)
         case Close(_)      => "disconnected".asLeft[LobbyInputMessage]
@@ -82,10 +83,13 @@ class LobbyApi[F[_]: Sync: Logging](
       userRef   <- Ref.of(none[User])
       ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue, userRef))
     } yield ws
+  }.recoverWith {
+    case LobbyError.NoSuchLobby => NotFound()
+    case _                      => InternalServerError()
   }
 
   private def getLobbies(user: User): F[Response[F]] = {
-    //todo mb filter lobbies by User rights or smth
+    //todo mb filter lobbies by user rights or smth
     // todo filter and pagination using query params
     for {
       _       <- info"Get lobbies req user:"
@@ -125,7 +129,7 @@ class LobbyApi[F[_]: Sync: Logging](
       id = eventId,
       gameId = gameId,
       settings = lobby.gameSettings.asInstanceOf[PokerSettings], // todo asInstanceOf
-      users = lobby.users.map { case (user, token) => (user.id, token) }
+      players = lobby.players.map(_.dto)
     )
     _ <- queue.enqueue1(event.asJson.noSpaces)
   } yield gameId

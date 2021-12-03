@@ -127,12 +127,14 @@
     display: flex;
     flex-direction: row;
     justify-content: flex-end;
+    align-items: center;
 }
 
 .lobby-heading-btn {
     display: flex;
     margin-right: 10px;
     max-width: 150px;
+    min-width: 150px;
 }
 
 .lobby-heading {
@@ -170,6 +172,9 @@
 .lobby-game-area {
     display: flex;
     flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: flex-start;
+
 
 }
 
@@ -204,14 +209,25 @@
 
 .lobby-players {
     width: auto;
-    min-width: 200px;
+    min-width: 20%;
 }
 
 .lobby-player {
-    width: 200px;
+    width: 100%;
 }
 
 h1 {
     padding: 10px;
     color: #961296;
 }
+
+.lobby-game-area-text-line {
+    padding: 10px;
+    margin: 0;
+}
+
+.lobby-game-area-text-line-invalid {
+     padding: 10px;
+     margin: 0;
+     color: #f63939;
+ }

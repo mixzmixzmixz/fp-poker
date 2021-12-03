@@ -35,6 +35,7 @@ object Dialogs {
     Dialog(
       _.`heading` := s"Join Lobby ${lobby.name}",
       _.`open` <-- isOpen,
+      _.onClosed --> { _ => isOpen.set(false) },
       _.slots.primaryAction(Button(
         _.`label` := "Join",
         _.`disabled` <-- fieldBuyIn.signal.map(_.toIntOption.fold(true)(_ => false)),
@@ -75,6 +76,7 @@ object Dialogs {
     val fieldBuyInMax   = Textfield(_.`name` := "BuyIn Max"  , _.`value` := settings.buyInMax.toString,   _.`outlined` := true)
 
     Dialog(
+      _.onClosed --> { _ => isOpen.set(false) },
       _.`heading` := "Settings",
       _.`open` <-- isOpen,
       _.slots.primaryAction(Button(

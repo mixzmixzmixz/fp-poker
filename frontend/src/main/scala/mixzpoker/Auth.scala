@@ -49,7 +49,6 @@ object Auth {
         cls("mixz-auth-head"),
         div("Sign In", cls("auth-head-title")),
       ),
-      br(), child.text <-- storedAuthToken.signal, br(),
       Textfield(
         _ => padding := "20px",
         _.`label` := "Login: ",

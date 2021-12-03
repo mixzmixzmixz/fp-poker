@@ -5,7 +5,7 @@ import com.raquo.laminar.nodes.ReactiveHtmlElement
 import io.laminext.fetch.circe._
 import io.circe.syntax._
 import laminar.webcomponents.material.{Button, Dialog, Icon, IconButton, Select, Textfield, List => MList}
-import mixzpoker.{App, Config, Page}
+import mixzpoker.{App, AppContext, Config, Page}
 import mixzpoker.domain.game.GameType
 import mixzpoker.domain.lobby.LobbyDto._
 import org.scalajs.dom
@@ -14,10 +14,10 @@ import org.scalajs.dom.HTMLElement
 object LobbiesPage {
 
   object requests {
-    def getLobbiesRequest()(implicit token: String): EventStream[List[LobbyDto]] =
+    def getLobbiesRequest()(implicit appContext: Var[AppContext]): EventStream[List[LobbyDto]] =
       Fetch.get(
           url = s"${Config.rootEndpoint}/lobby",
-          headers = Map("Authorization" -> token)
+          headers = Map("Authorization" -> appContext.now().token)
         ).decodeOkay[List[LobbyDto]]
         .recoverToTry.map(_.fold(
           err => {
@@ -27,13 +27,13 @@ object LobbiesPage {
           resp => resp.data
         ))
 
-    def createLobbyRequest(body: CreateLobbyRequest)(implicit token: String): EventStream[String] =
+    def createLobbyRequest(body: CreateLobbyRequest)(implicit appContext: Var[AppContext]): EventStream[String] =
       Fetch.post(
           url = s"${Config.rootEndpoint}/lobby/create",
-          headers = Map("Authorization" -> token),
+          headers = Map("Authorization" -> appContext.now().token),
           body = body.asJson
         ).text.recoverToTry
-        .map(_.fold(_ => "", resp => ""))
+        .map(_.fold(_ => "", _ => ""))
 
   }
 
@@ -54,7 +54,7 @@ object LobbiesPage {
     )
   }
 
-  def apply()(implicit token: String): HtmlElement = {
+  def apply()(implicit appContext: Var[AppContext]): HtmlElement = {
     val $lobbies: EventStream[ReactiveHtmlElement[HTMLElement]] = getLobbiesRequest().map { lobbies =>
       if (lobbies.isEmpty)
         div("No Lobbies yet!")
@@ -65,10 +65,10 @@ object LobbiesPage {
         )
     }
 
-    div(flexDirection.column, h1("Lobbies"), h1("Lobbies2"), child <-- $lobbies)
+    div(flexDirection.column, h1("Lobbies"), child <-- $lobbies)
   }
 
-  def controlButtons()(implicit token: String): HtmlElement = {
+  def controlButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
     val isOpen = Var(false)
     val lobbyName = Var("")
     val gameType = Var(GameType.all.head)
@@ -87,7 +87,7 @@ object LobbiesPage {
           _ => inContext { thisNode =>
             thisNode.events(onClick).flatMap { _ =>
               createLobbyRequest(CreateLobbyRequest(lobbyName.now(), GameType.Poker))
-            } --> {_ =>
+            } --> { _ =>
               isOpen.set(false)
               lobbyName.set("")
             }

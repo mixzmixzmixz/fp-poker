@@ -2,6 +2,7 @@ package mixzpoker.pages
 
 import com.raquo.laminar.api.L._
 import laminar.webcomponents.material.Button
+import mixzpoker.AppContext
 
 object GamesPage {
 
@@ -9,7 +10,7 @@ object GamesPage {
     div("Games")
   }
 
-  def controlButtons()(implicit token: String): HtmlElement = {
+  def controlButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
     div(
       Button(
         _.`raised` := true,

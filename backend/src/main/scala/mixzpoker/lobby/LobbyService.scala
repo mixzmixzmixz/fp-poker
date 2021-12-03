@@ -52,14 +52,16 @@ object LobbyService {
 //          case Register(_)          => none[LobbyOutputMessage] //
           case Join(buyIn)          => joinLobby(event.lobbyName, event.user, buyIn)
           case Leave                => leaveLobby(event.lobbyName, event.user)
-          case Ready                => updatePlayerReadiness(event.lobbyName, event.user, readiness = false)
-          case NotReady             => updatePlayerReadiness(event.lobbyName, event.user, readiness = true)
+          case Ready                => updatePlayerReadiness(event.lobbyName, event.user, readiness = true)
+          case NotReady             => updatePlayerReadiness(event.lobbyName, event.user, readiness = false)
           case ChatMessage(message) => chat(message, event.user)
         }
         _   <- info"Response with msg: ${msg.toString}"
       } yield msg.some
+    }.recover {
+      case err: LobbyError => ErrorMessage(err.toString).some
     }.handleErrorWith { err =>
-//      errorCause"Error occured!"(err).as(none[LobbyOutputMessage])
+      //errorCause"Error occured!"(err).as(none[LobbyOutputMessage])
       error"Error occured! ${err.toString}".as(none[LobbyOutputMessage])
     }
 

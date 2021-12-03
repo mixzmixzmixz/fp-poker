@@ -12,8 +12,9 @@ import scala.concurrent.duration._
 import scala.util.Try
 import laminar.webcomponents.material.{Button, Fab, Icon, Textarea, Textfield, List => MList}
 import mixzpoker.components.Dialogs._
+import mixzpoker.domain.game.GameSettings
 import mixzpoker.domain.user.UserDto.UserDto
-import mixzpoker.{Config, Page}
+import mixzpoker.{AppContext, AppError, Config, Page}
 import mixzpoker.domain.lobby.LobbyDto.LobbyDto
 import mixzpoker.domain.lobby.{LobbyInputMessage, LobbyOutputMessage}
 import mixzpoker.domain.lobby.LobbyOutputMessage._
@@ -25,10 +26,10 @@ object LobbyPage {
   }
 
   object requests {
-    def getLobbyRequest(name: String)(implicit token: String): EventStream[Try[LobbyDto]] =
+    def getLobbyRequest(name: String)(implicit appContext: Var[AppContext]): EventStream[Try[LobbyDto]] =
       Fetch.get(
         url = s"${Config.rootEndpoint}/lobby/$name",
-        headers = Map("Authorization" -> token)
+        headers = Map("Authorization" -> appContext.now().token)
       ).decodeOkay[LobbyDto].recoverToTry.map(_.map(_.data))
 
   }
@@ -41,13 +42,16 @@ object LobbyPage {
     .sendText[LobbyInputMessage](_.asJson.noSpaces)
     .build(reconnectRetries = Int.MaxValue, reconnectDelay = 3.seconds)
 
-  def apply($lobbyPage: Signal[Page.Lobby], $appUser: Signal[UserDto])(implicit token: String): HtmlElement = {
+  def apply($lobbyPage: Signal[Page.Lobby])(implicit appContext: Var[AppContext]): HtmlElement = {
     def renderLobby(lobbyInit: LobbyDto): HtmlElement = {
       val ws                    = createWS(lobbyInit.name)
       val lobbyVar              = Var[LobbyDto](lobbyInit)
       val isSettingsDialogOpen  = Var(false)
       val isJoinLobbyDialogOpen = Var(false)
       val chatState             = Var(ChatState())
+      val $me                   = lobbyVar.signal.combineWith(appContext.signal.map(_.user)).map {
+                                    case (l, u) => l.players.find(_.user.name == u.name)
+                                  }
 
       def processServerMessages(message: LobbyOutputMessage): Unit = {
         dom.console.log(s"receive a message from server: ${message.toString}")
@@ -55,6 +59,8 @@ object LobbyPage {
           case KeepAlive                      => ()
           case LobbyState(lobby)              => lobbyVar.set(lobby)
           case ChatMessageFrom(message, user) => chatState.update(_.addMessage(user, message))
+          case ErrorMessage(message)          => appContext.now().error.set(AppError.GeneralError(message))
+          case GameStarted(gameId)            => appContext.now().error.set(AppError.GeneralError(s"Game have begun! $gameId"))
         }
       }
 
@@ -111,11 +117,40 @@ object LobbyPage {
         )
       }
 
+      def MainArea($settings: Signal[GameSettings]): HtmlElement = {
+        div(
+          cls("lobby-game-area"),
+          p(
+            cls := "lobby-game-area-text-line",
+            child.text <-- lobbyVar.signal.map(l => s"Game: ${l.gameType.toString}")
+          ),
+          p(
+            cls := "lobby-game-area-text-line",
+            child.text <-- $settings.map(s => s"Min Buy In: ${s.buyInMin}")
+          ),
+          p(
+            cls := "lobby-game-area-text-line",
+            child.text <-- $settings.map(s => s"Max Buy In: ${if (s.buyInMax != Int.MaxValue) s.buyInMax.toString else "No Limit"}")
+          ),
+          p(
+            cls <-- lobbyVar.signal.map { l =>
+              if (l.players.size >= l.gameSettings.minPlayers && l.players.size <= l.gameSettings.maxPlayers)
+                "lobby-game-area-text-line"
+              else
+                "lobby-game-area-text-line-invalid"
+            },
+            child.text <-- lobbyVar.signal.map { l => s"Players: ${l.players.size} / ${l.gameSettings.maxPlayers}"}
+          ),
+
+
+        )
+      }
+
       div(
         ws.connect,
         ws.connected --> { _ =>
           dom.console.log("ws connected")
-          ws.sendOne(Register(token))
+          ws.sendOne(Register(appContext.now().token))
         },
         ws.received --> { message => processServerMessages(message)},
         cls("lobby-container"),
@@ -130,21 +165,32 @@ object LobbyPage {
           },
           div(
             cls("lobby-heading-btns"),
-            child <-- $appUser.combineWith(lobbyVar.signal).map { case (user, lobby) =>
-              if (lobby.players.map(_.user.name).contains(user.name)) leaveBtn
-              else joinBtn
+            child <-- $me.map {
+              case Some(_) => leaveBtn
+              case None    => joinBtn
             },
             Button(
               _.`raised` := true,
               _.`label` := "settings",
               _ => cls("lobby-heading-btn"),
               _ => onClick --> { _ => isSettingsDialogOpen.set(true)}
-            )
+            ),
+            child <-- $me.map {
+              case Some(p) => Button(
+                _.`raised` := true,
+                _.`label` := (if (p.ready) "ready!" else "ready?"),
+                _.`dense` := p.ready,
+                _ => cls("lobby-heading-btn"),
+                _ => onClick --> { _ => ws.sendOne(if (p.ready) NotReady else Ready)}
+              )
+              case None => div()
+            }
+
           )
         ),
         div(cls("mixz-container"), flexDirection.row,
           div(cls("lobby-main"), flexDirection.column,
-            div(cls("lobby-game-area")),
+            MainArea(lobbyVar.signal.map(_.gameSettings)),
             ChatArea()
           ),
           div(cls("lobby-players"), child <-- lobbyVar.signal.map(Users))
@@ -158,7 +204,7 @@ object LobbyPage {
     div(child <-- $lobby, width("100%"))
   }
 
-  def controlButtons()(implicit token: String): HtmlElement = {
+  def controlButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
     div(
       Button(
         _.`raised` := true,
@@ -187,7 +233,7 @@ object LobbyPage {
               _.`hasMeta` := true,
               _.slots.graphic(Icon().amend(span("person"))),
               _.slots.default(span(player.user.name)),
-              _.slots.secondary(span(player.buyIn.toString)),
+              _.slots.secondary(span(s"${player.buyIn}  - ${if (player.ready) "ready" else "not ready"}")),
             )
           }: _*
         )

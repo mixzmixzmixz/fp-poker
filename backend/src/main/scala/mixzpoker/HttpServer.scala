@@ -14,7 +14,7 @@ import scala.concurrent.duration.DurationInt
 
 import mixzpoker.auth.{AuthApi, AuthUserRepository}
 import mixzpoker.user.{UserApi, UserRepository}
-import mixzpoker.game.poker.{PokerApi, PokerApp}
+import mixzpoker.game.poker.{PokerApi, PokerService}
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.lobby.{LobbyApi, LobbyRepository, LobbyService}
 
@@ -32,16 +32,16 @@ object HttpServer {
       lobbyRepo    <- LobbyRepository.inMemory
       broker       <- Broker.fromQueues[F](32)
       _            <- broker.createTopic("poker-game-topic")
-      pokerApp     <- PokerApp.of(broker)
-      lobbyService <- LobbyService.of(lobbyRepo)
+      pokerService <- PokerService.of(broker)
+      lobbyService <- LobbyService.of(lobbyRepo, pokerService)
 
-      fiber1 <- ConcurrentEffect[F].start(pokerApp.run)
+      fiber1 <- ConcurrentEffect[F].start(pokerService.run)
       fiber2 <- ConcurrentEffect[F].start(lobbyService.run)
 
       helloWorld = new HelloWorld[F](counter)
       authApi    = new AuthApi[F](authUserRepo, userRepo)
       userApi    = new UserApi[F](userRepo)
-      pokerApi   = new PokerApi[F](broker, pokerApp)
+      pokerApi   = new PokerApi[F](broker, pokerService)
       lobbyApi   = new LobbyApi[F](lobbyRepo, broker, lobbyService, authApi.getAuthUser)
 
       services =

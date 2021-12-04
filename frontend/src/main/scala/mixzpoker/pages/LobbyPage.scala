@@ -40,7 +40,7 @@ object LobbyPage {
     .url(s"${Config.wsRootEndpoint}/lobby/$name/ws")
     .receiveText[LobbyOutputMessage](decode[LobbyOutputMessage])
     .sendText[LobbyInputMessage](_.asJson.noSpaces)
-    .build(reconnectRetries = Int.MaxValue, reconnectDelay = 3.seconds)
+    .build(reconnectRetries = 5, reconnectDelay = 3.seconds)
 
   def apply($lobbyPage: Signal[Page.Lobby])(implicit appContext: Var[AppContext]): HtmlElement = {
     def renderLobby(lobbyInit: LobbyDto): HtmlElement = {

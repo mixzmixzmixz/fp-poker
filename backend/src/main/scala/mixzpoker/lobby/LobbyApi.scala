@@ -18,14 +18,10 @@ import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import mixzpoker.auth.{AuthError, AuthToken}
-import mixzpoker.game.{EventId, GameId}
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.user.User
-import mixzpoker.domain.game.GameType
-import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.domain.lobby.{LobbyDto, LobbyInputMessage}
 import mixzpoker.domain.lobby.LobbyInputMessage._
-import mixzpoker.game.poker.PokerEvent.CreateGameEvent
 
 
 class LobbyApi[F[_]: Sync: Logging](
@@ -47,7 +43,6 @@ class LobbyApi[F[_]: Sync: Logging](
     case       GET  -> Root / "lobby"                      as user => getLobbies(user)
     case       GET  -> Root / "lobby" / LobbyNameVar(name) as user => getLobby(name)
     case req @ POST -> Root / "lobby" / "create"           as user => createLobby(req.req, user)
-    case req @ POST -> Root / "lobby" / name / "start"     as user => startGame(req.req, name, user)
   }
 
   private def lobbyWS(name: LobbyName): F[Response[F]] = {
@@ -109,29 +104,5 @@ class LobbyApi[F[_]: Sync: Logging](
     _    <- lobbyRepository.create(req.name, user, req.gameType)
     resp <- Created()
   } yield resp
-
-
-  private def startGame(req: Request[F], name: String, user: User): F[Response[F]] = for {
-    lobbyName <- LobbyName.fromString(name).liftTo[F]
-    lobby     <- lobbyRepository.get(lobbyName)
-    _         <- lobby.checkUserIsOwner(user).liftTo[F]
-    gameId    <- lobby.gameType match {
-                    case GameType.Poker => startPokerGame(lobby)
-                  }
-    resp      <- Ok(LobbyDto.CreateGameResponse(gameId.toString).asJson)
-  } yield resp
-
-  private def startPokerGame(lobby: Lobby): F[GameId] = for {
-    queue <- broker.getQueue("poker-game-topic")
-    gameId <- GameId.fromRandom
-    eventId <- EventId.fromRandom
-    event = CreateGameEvent(
-      id = eventId,
-      gameId = gameId,
-      settings = lobby.gameSettings.asInstanceOf[PokerSettings], // todo asInstanceOf
-      players = lobby.players.map(_.dto)
-    )
-    _ <- queue.enqueue1(event.asJson.noSpaces)
-  } yield gameId
 }
 

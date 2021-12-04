@@ -1,6 +1,5 @@
 package mixzpoker.game.poker
 
-import cats.data.EitherT
 import cats.implicits._
 import cats.effect.{Concurrent, Sync}
 import mixzpoker.game.GameId
@@ -14,23 +13,27 @@ import mixzpoker.user.User
 
 //todo pokerApp is going to be separate service with its own http api
 // todo check user rights
-class PokerApi[F[_]: Sync: Concurrent](broker: Broker[F], pokerApp: PokerApp[F]) {
+class PokerApi[F[_]: Sync: Concurrent](broker: Broker[F], pokerApp: PokerService[F]) {
   val dsl = new Http4sDsl[F]{}
   import dsl._
 
+  object GameIdVar {
+    def unapply(name: String): Option[GameId] = GameId.fromString(name).toOption
+  }
+
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {
-    case GET -> Root / "poker" / gameId / "game" as user => getGameState(gameId)
+    case       GET  -> Root / "poker" / GameIdVar(gameId) / "game" as user => getGameState(gameId)
 
-    case req @ POST -> Root / "poker" / gameId / "game" as user => ???
+    case req @ POST -> Root / "poker" / GameIdVar(gameId) / "game" as user => ???
 
-    case req @ POST -> Root / "poker" / gameId / "join" as user => ???
+    case req @ POST -> Root / "poker" / GameIdVar(gameId) / "join" as user => ???
 
   }
 
-  private def getGameState(gameId: String): F[Response[F]] = {
+  private def getGameState(gameId: GameId): F[Response[F]] = {
     for {
-      gid <- EitherT.fromEither[F](GameId.fromString(gameId))
-      game <- pokerApp.getGame(gid)
-    } yield Ok(PokerDto.fromPokerGame(game).asJson)
-  }.leftMap { err => Ok(err.toString) }.merge.flatten
+      game <- pokerApp.getGame(gameId)
+      resp <- Ok(PokerDto.fromPokerGame(game).asJson)
+    } yield resp
+  }
 }

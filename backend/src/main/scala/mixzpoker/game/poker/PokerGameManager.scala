@@ -11,7 +11,7 @@ import mixzpoker.domain.Token
 import mixzpoker.domain.game.poker.PokerSettings
 import mixzpoker.game.poker.game.{PokerGame, PokerGameEvent}
 import mixzpoker.game.poker.game.PokerGameEvent._
-import mixzpoker.game.{GameError, GameId}
+import mixzpoker.game.GameId
 import mixzpoker.infrastructure.broker.Broker
 import mixzpoker.lobby.Player
 import mixzpoker.user.UserId
@@ -27,10 +27,10 @@ trait PokerGameManager[F[_]] {
 object PokerGameManager {
   def create[F[_]: Sync: Logging](
     gameId: GameId, settings: PokerSettings, players: List[Player], broker: Broker[F]
-  ): EitherT[F, GameError, PokerGameManager[F]] =
+  ): F[PokerGameManager[F]] =
     for {
-      _game <- EitherT.fromEither[F](PokerGame.create(gameId, settings, players))
-      gameRef <- EitherT.right[GameError](Ref.of[F, PokerGame](_game))
+      _game   <- PokerGame.create(gameId, settings, players).liftTo[F]
+      gameRef <- Ref.of[F, PokerGame](_game)
     } yield new PokerGameManager[F] {
       override def id: GameId = gameId
       override def game: F[PokerGame] = gameRef.get
@@ -58,8 +58,6 @@ object PokerGameManager {
         case Left(err) => error"${err.toString}"
         case Right(_) => ().pure[F]
       }
-
-
 
       def playerFold(userId: UserId): EitherT[F, PokerError, Unit] = for {
         g <- EitherT.right[PokerError](game)

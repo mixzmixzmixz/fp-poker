@@ -20,7 +20,8 @@ object LobbyDto {
     owner: UserDto,
     players: List[PlayerDto],
     gameType: GameType,
-    gameSettings: GameSettings
+    gameSettings: GameSettings,
+    gameId: Option[String]
   )
 
   implicit val playerDecoder: Decoder[PlayerDto] = deriveDecoder

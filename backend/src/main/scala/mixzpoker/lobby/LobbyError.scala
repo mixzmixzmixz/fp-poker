@@ -17,5 +17,6 @@ object LobbyError {
   case object LobbyFull extends LobbyError
   case object BuyInTooSmall extends LobbyError
   case object BuyInTooLarge extends LobbyError
+  case object GameIsAlreadyStarted extends LobbyError
   case class CreateGameError(gameError: GameError) extends LobbyError
 }

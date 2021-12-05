@@ -1,11 +1,9 @@
 package mixzpoker.lobby
 
-import cats.data.EitherT
 import cats.effect.Sync
-import cats.effect.concurrent.Ref
 import cats.implicits._
-import fs2.Stream
-import fs2.concurrent.Queue
+import fs2.{Pull, Stream}
+import fs2.concurrent.{Queue, Topic}
 import io.circe.parser.decode
 import io.circe.syntax._
 import org.http4s.circe._
@@ -17,16 +15,16 @@ import org.http4s.{AuthedRoutes, HttpRoutes, Request, Response}
 import tofu.logging.Logging
 import tofu.syntax.logging._
 
-import mixzpoker.auth.{AuthError, AuthToken}
-import mixzpoker.infrastructure.broker.Broker
+import mixzpoker.auth.AuthError
 import mixzpoker.user.User
-import mixzpoker.domain.lobby.{LobbyDto, LobbyInputMessage}
+import mixzpoker.domain.lobby.{LobbyDto, LobbyInputMessage, LobbyOutputMessage}
 import mixzpoker.domain.lobby.LobbyInputMessage._
 
 
 class LobbyApi[F[_]: Sync: Logging](
-  lobbyRepository: LobbyRepository[F], broker: Broker[F], lobbyService: LobbyService[F],
-  getAuthUser: AuthToken => F[Either[AuthError, User]]
+  lobbyService: LobbyService[F],
+  lobbyRepository: LobbyRepository[F],
+  getAuthUser: String => F[Either[AuthError, User]]
 ) {
   val dsl: Http4sDsl[F] = new Http4sDsl[F]{}
   import dsl._
@@ -46,28 +44,32 @@ class LobbyApi[F[_]: Sync: Logging](
   }
 
   private def lobbyWS(name: LobbyName): F[Response[F]] = {
-    def processInput(queue: Queue[F, LobbyEvent], userRef: Ref[F, Option[User]])
+    def processInput(queue: Queue[F, LobbyMessageContext], topic: Topic[F, LobbyOutputMessage])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
-      val parsedWebSocketInput: Stream[F, LobbyEvent] = wsfStream.collect {
-        case Text(text, _) => decode[LobbyInputMessage](text).leftMap(_.toString)
-        case Close(_)      => "disconnected".asLeft[LobbyInputMessage]
-      }.evalMap {
-        case Left(err)     => info"$err".as(err.asLeft[LobbyInputMessage])
-        case Right(msg)    => info"Event: Lobby=${name.value}, message=${msg.toString}".as(msg.asRight[String])
-      }.collect {
-        case Right(msg)    => msg
-      }.evalMap[F, Option[LobbyEvent]] {
-        case Register(token) =>
-          (for {
-            at   <- EitherT.fromEither[F]   (AuthToken.fromString(token))
-            user <- EitherT                 (getAuthUser(at))
-            _    <- EitherT.right[AuthError](userRef.update(_ => user.some))
-          } yield ()).value.as(none[LobbyEvent])
-        case msg @ _ => userRef.get.map(_.map(user => LobbyEvent(user, name, msg)))
-      }.collect {
-        case Some(msg) => msg
-      }
+      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, LobbyMessageContext] =
+        stream.map { text =>
+          decode[LobbyInputMessage](text).leftMap(_.toString)
+        }.evalMap {
+          case Left(err)   => info"$err".as(err.asLeft[LobbyInputMessage])
+          case Right(msg)  => info"Event: Lobby=${name.value}, message=${msg.toString}".as(msg.asRight[String])
+        }.collect {
+          case Right(msg)  => LobbyMessageContext(user, name, msg)
+        }
+
+      val parsedWebSocketInput: Stream[F, LobbyMessageContext] = wsfStream.collect {
+        case Text(text, _) => text.trim
+        case Close(_)      => "disconnected"
+      }.pull.uncons1.flatMap {
+        case None                  => Pull.done: Pull[F, LobbyMessageContext, Unit]
+        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
+          err =>
+            topic.publish1(LobbyOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}"))
+              *> (Pull.done: Pull[F, LobbyMessageContext, Unit]).pure[F],
+          user =>
+            (processStreamInput(stream, user).pull.echo: Pull[F, LobbyMessageContext, Unit]).pure[F]
+        )}).flatten
+      }.stream
 
       (Stream.emits(Seq()) ++ parsedWebSocketInput).through(queue.enqueue)
     }
@@ -75,8 +77,7 @@ class LobbyApi[F[_]: Sync: Logging](
     for {
       _         <- lobbyRepository.ensureExists(name)
       toClient  =  lobbyService.topic.subscribe(1000).map(msg => Text(msg.asJson.noSpaces))
-      userRef   <- Ref.of(none[User])
-      ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue, userRef))
+      ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue, lobbyService.topic))
     } yield ws
   }.recoverWith {
     case LobbyError.NoSuchLobby => NotFound()
@@ -95,8 +96,8 @@ class LobbyApi[F[_]: Sync: Logging](
   }
 
   private def getLobby(name: LobbyName): F[Response[F]] = for {
-    lobby     <- lobbyRepository.get(name)
-    resp      <- Ok(lobby.dto.asJson)
+    lobby <- lobbyRepository.get(name)
+    resp  <- Ok(lobby.dto.asJson)
   } yield resp
 
   private def createLobby(request: Request[F], user: User): F[Response[F]] = for {

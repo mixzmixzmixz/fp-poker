@@ -1,7 +1,8 @@
 package mixzpoker.game.poker
 
-import mixzpoker.game.{GameError, GameId}
-import mixzpoker.user.UserId
+import mixzpoker.game.GameError
+import mixzpoker.domain.game.GameId
+import mixzpoker.domain.user.UserId
 
 
 sealed trait PokerError extends GameError

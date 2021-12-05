@@ -5,13 +5,14 @@ import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import mixzpoker.user.User
 import mixzpoker.domain.game.GameType
-import LobbyError._
 import mixzpoker.domain.game.poker.PokerSettings
+import LobbyError._
 
 
 trait LobbyRepository[F[_]] {
   def create(name: String, owner: User, gameType: GameType): F[Unit]
   def list(): F[List[Lobby]]
+  def listWithGameStarted: F[List[Lobby]]
   def get(name: LobbyName): F[Lobby]
   def save(lobby: Lobby): F[Unit]
   def delete(name: LobbyName): F[Unit]
@@ -39,6 +40,9 @@ object LobbyRepository {
 
     override def list(): F[List[Lobby]] =
       store.get.map(_.values.toList)
+
+    override def listWithGameStarted: F[List[Lobby]] =
+      store.get.map(_.values.toList.filter(_.gameId.isDefined))
 
     override def get(name: LobbyName): F[Lobby] =
       store.get.flatMap(_.get(name).toRight(NoSuchLobby).liftTo[F])

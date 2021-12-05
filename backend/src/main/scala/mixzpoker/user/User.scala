@@ -3,6 +3,7 @@ package mixzpoker.user
 import mixzpoker.domain.Token
 import mixzpoker.user.UserError._
 import mixzpoker.domain.user.UserDto._
+import mixzpoker.domain.user.{UserId, UserName, UserPassword}
 
 sealed trait User {
   def id: UserId
@@ -33,17 +34,13 @@ object User {
   case class RegularUser(id: UserId, name: UserName, password: UserPassword, amount: Token) extends User {
     override def dto: UserDto = UserDto(id = id.toString, name = name.toString, tokens = amount)
 
-    override def checkPassword(password: String): ErrOr[Unit] = for {
-      userPassword <- UserPassword.fromString(password)
-      _ <- if (userPassword == this.password) Right(()) else Left(WrongPassword)
-    } yield ()
+    override def checkPassword(pw: String): ErrOr[Unit] =
+      Either.cond(password == UserPassword.fromString(pw), (), WrongPassword)
   }
 
 
   def newAnonymousUser(name: String): User = AnonymousUser(UserId.fromRandom, UserName(name), UserPassword("tmp"), 1000)
 
-  def create(name: String, password: String): ErrOr[User] = for {
-    userPassword <- UserPassword.fromString(password)
-    userName = UserName(name)
-  } yield RegularUser(UserId.fromRandom, userName, userPassword, 1000)
+  def create(name: String, password: String): ErrOr[User] =
+    Right(RegularUser(UserId.fromRandom, UserName(name), UserPassword.fromString(password), 1000))
 }

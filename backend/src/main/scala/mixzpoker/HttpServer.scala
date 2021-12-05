@@ -41,8 +41,8 @@ object HttpServer {
       helloWorld = new HelloWorld[F](counter)
       authApi    = new AuthApi[F](authUserRepo, userRepo)
       userApi    = new UserApi[F](userRepo)
-      pokerApi   = new PokerApi[F](broker, pokerService)
-      lobbyApi   = new LobbyApi[F](lobbyRepo, broker, lobbyService, authApi.getAuthUser)
+      pokerApi   = new PokerApi[F](pokerService, lobbyRepo, authApi.getAuthUser)
+      lobbyApi   = new LobbyApi[F](lobbyService, lobbyRepo, authApi.getAuthUser)
 
       services =
         helloWorld.routes <+>

@@ -2,10 +2,10 @@ package mixzpoker.game.poker.game
 
 import io.circe.{Encoder, Json}
 import mixzpoker.domain.Token
+import mixzpoker.domain.user.UserId
 import mixzpoker.game.poker.PokerError
 import mixzpoker.game.poker.PokerError._
 import mixzpoker.game.poker.player.PokerPlayer
-import mixzpoker.user.UserId
 
 
 case class Pot(

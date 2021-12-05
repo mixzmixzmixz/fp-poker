@@ -1,10 +1,10 @@
 package mixzpoker.game.poker.game
 
 import io.circe.generic.JsonCodec
+import mixzpoker.domain.user.UserId
 import mixzpoker.game.poker.PokerError
 import mixzpoker.game.poker.PokerError._
 import mixzpoker.game.poker.player.PokerPlayer
-import mixzpoker.user.UserId
 
 
 @JsonCodec

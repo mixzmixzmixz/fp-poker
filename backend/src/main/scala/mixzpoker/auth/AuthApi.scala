@@ -11,9 +11,9 @@ import org.http4s.util.CaseInsensitiveString
 import io.circe.syntax._
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
-import mixzpoker.user.{User, UserName, UserRepository}
+import mixzpoker.user.{User, UserRepository}
 import AuthError._
+import mixzpoker.domain.user.UserName
 
 
 class AuthApi[F[_]: Concurrent: Logging](
@@ -23,18 +23,18 @@ class AuthApi[F[_]: Concurrent: Logging](
   val dsl = new Http4sDsl[F]{}
   import dsl._
 
-  def getAuthUser(token: AuthToken): F[Either[AuthError, User]] =
-    authUserRepository
-      .getUserName(token)
-      .flatMap(userRepository.get)
-      .map(_.asRight[AuthError])
-      .recover { case ae: AuthError => ae.asLeft[User] }
+  def getAuthUser(token: String): F[Either[AuthError, User]] =
+    AuthToken.fromString(token).liftTo[F].flatMap { at =>
+      authUserRepository
+        .getUserName(at)
+        .flatMap(userRepository.get)
+        .map(_.asRight[AuthError])
+    }.recover { case ae: AuthError => ae.asLeft[User] }
 
   val authUser: Kleisli[F, Request[F], ErrOr[User]] = Kleisli({ request =>
      (for {
       header    <- request.headers.get(CaseInsensitiveString("Authorization")).toRight(NoAuthorizationHeader).liftTo[F]
-      authToken <- AuthToken.fromString(header.value).liftTo[F]
-      user      <- getAuthUser(authToken)
+      user      <- getAuthUser(header.value)
     } yield user).recover { case ae: AuthError => ae.asLeft[User] }
   })
 

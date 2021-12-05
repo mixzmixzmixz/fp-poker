@@ -4,6 +4,7 @@ import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 
+import mixzpoker.domain.user.UserName
 import UserError._
 
 

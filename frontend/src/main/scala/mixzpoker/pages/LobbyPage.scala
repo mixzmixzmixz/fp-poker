@@ -31,7 +31,6 @@ object LobbyPage {
         url = s"${Config.rootEndpoint}/lobby/$name",
         headers = Map("Authorization" -> appContext.now().token)
       ).decodeOkay[LobbyDto].recoverToTry.map(_.map(_.data))
-
   }
 
   import requests._
@@ -146,11 +145,21 @@ object LobbyPage {
         )
       }
 
+      def GameStartProcess() = {
+        div(
+          cls("lobby-game-area"),
+          p(
+            cls := "lobby-game-area-text-line",
+            "Everybody is ready! Game is about to start!"
+          )
+        )
+      }
+
       div(
         ws.connect,
-        ws.connected --> { _ =>
+        ws.connected --> { _ws =>
           dom.console.log("ws connected")
-          ws.sendOne(Register(appContext.now().token))
+          _ws.send(appContext.now().token)
         },
         ws.received --> { message => processServerMessages(message)},
         cls("lobby-container"),
@@ -190,12 +199,16 @@ object LobbyPage {
         ),
         div(cls("mixz-container"), flexDirection.row,
           div(cls("lobby-main"), flexDirection.column,
-            MainArea(lobbyVar.signal.map(_.gameSettings)),
+            child <-- lobbyVar.signal.map { l =>
+              if (l.gameId.isDefined)
+                GameStartProcess()
+              else
+                MainArea(lobbyVar.signal.map(_.gameSettings))
+            },
             ChatArea()
           ),
           div(cls("lobby-players"), child <-- lobbyVar.signal.map(Users))
         )
-
       )
     }
 

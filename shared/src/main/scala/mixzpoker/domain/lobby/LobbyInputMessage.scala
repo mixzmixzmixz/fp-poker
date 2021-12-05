@@ -9,17 +9,12 @@ import mixzpoker.domain.Token
 sealed trait LobbyInputMessage
 
 object LobbyInputMessage {
-
-  case class Register(token: String) extends LobbyInputMessage
   case class Join(buyIn: Token) extends LobbyInputMessage
   case object Leave extends LobbyInputMessage
   case object Ready extends LobbyInputMessage
   case object NotReady extends LobbyInputMessage
   case class ChatMessage(message: String) extends LobbyInputMessage
 
-
-  implicit val rDecoder: Decoder[Register] = deriveDecoder
-  implicit val rEncoder: Encoder[Register] = deriveEncoder
 
   implicit val cmDecoder: Decoder[ChatMessage] = deriveDecoder
   implicit val cmEncoder: Encoder[ChatMessage] = deriveEncoder
@@ -28,7 +23,6 @@ object LobbyInputMessage {
   implicit val jEncoder: Encoder[Join] = deriveEncoder
 
   implicit val limDecoder: Decoder[LobbyInputMessage] = (c: HCursor) => c.downField("type").as[String].flatMap {
-    case "Register"    => c.downField("params").as[Register]
     case "Leave"       => Right(Leave)
     case "Ready"       => Right(Ready)
     case "NotReady"    => Right(NotReady)
@@ -38,7 +32,6 @@ object LobbyInputMessage {
   }
 
   implicit val limEncoder: Encoder[LobbyInputMessage] = Encoder.instance {
-    case a: Register    => Json.obj("type" -> Json.fromString("Register"), "params" -> a.asJson)
     case Leave          => Json.obj("type" -> Json.fromString("Leave"))
     case Ready          => Json.obj("type" -> Json.fromString("Ready"))
     case NotReady       => Json.obj("type" -> Json.fromString("NotReady"))

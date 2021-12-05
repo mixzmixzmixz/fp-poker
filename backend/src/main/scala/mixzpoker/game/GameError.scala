@@ -9,6 +9,7 @@ object GameError {
   type ErrOr[A] = Either[GameError, A]
 
   case object NoSuchGame extends GameError
+  case object GameAlreadyExist extends GameError
   case object InvalidGameIdFormat extends GameError
   case object WrongGameType extends GameError
   case object WrongSettingsType extends GameError

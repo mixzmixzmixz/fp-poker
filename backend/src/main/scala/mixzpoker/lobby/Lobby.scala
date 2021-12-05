@@ -2,9 +2,8 @@ package mixzpoker.lobby
 
 import mixzpoker.user.User
 import mixzpoker.domain.Token
-import mixzpoker.domain.game.{GameSettings, GameType}
+import mixzpoker.domain.game.{GameId, GameSettings, GameType}
 import mixzpoker.domain.lobby.LobbyDto.LobbyDto
-import mixzpoker.game.GameId
 import LobbyError._
 
 
@@ -14,7 +13,7 @@ case class Lobby(
   players: List[Player] = List(),
   gameType: GameType,
   gameSettings: GameSettings,
-  gameId: Option[GameId]
+  gameId: Option[GameId] = None
 ) {
   def size: Int = players.size
 
@@ -43,6 +42,13 @@ case class Lobby(
     case None => Right(copy(gameId = Some(gameId)))
   }
 
+  def satisfiesSettings: Boolean = {
+    (players.length >= gameSettings.minPlayers) &&
+      players.length <= gameSettings.maxPlayers &&
+      players.forall(p => p.buyIn >= gameSettings.buyInMin && p.buyIn <= gameSettings.buyInMax)
+  }
+
+  def isStarted: Boolean = gameId.isDefined
 
   def dto: LobbyDto = LobbyDto(
     name = name.value,

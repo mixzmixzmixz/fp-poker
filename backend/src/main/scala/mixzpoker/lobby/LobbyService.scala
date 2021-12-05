@@ -6,20 +6,21 @@ import fs2.concurrent.{Queue, Topic}
 import fs2.Stream
 import tofu.logging.Logging
 import tofu.syntax.logging._
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import mixzpoker.AppError
 import mixzpoker.domain.Token
 import mixzpoker.domain.lobby.LobbyOutputMessage
 import mixzpoker.domain.lobby.LobbyOutputMessage._
 import mixzpoker.domain.lobby.LobbyInputMessage._
 import mixzpoker.game.poker.PokerService
+import mixzpoker.lobby.LobbyError.GameIsAlreadyStarted
 import mixzpoker.user.User
 
 //todo make topic/queue per user?
 trait LobbyService[F[_]] {
   def topic: Topic[F, LobbyOutputMessage]
-  def queue: Queue[F, LobbyEvent]
+  def queue: Queue[F, LobbyMessageContext]
 
   def run: F[Unit]
 }
@@ -28,11 +29,11 @@ object LobbyService {
   def of[F[_]: Concurrent: Timer: Logging](
     repository: LobbyRepository[F], pokerService: PokerService[F]
   ): F[LobbyService[F]] = for {
-    _queue <- Queue.unbounded[F, LobbyEvent]
+    _queue <- Queue.unbounded[F, LobbyMessageContext]
     _topic <- Topic[F, LobbyOutputMessage](KeepAlive)
   } yield new LobbyService[F] {
     override def topic: Topic[F, LobbyOutputMessage] = _topic
-    override def queue: Queue[F, LobbyEvent] = _queue
+    override def queue: Queue[F, LobbyMessageContext] = _queue
 
     override def run: F[Unit] = {
       val keepAlive = Stream
@@ -46,15 +47,13 @@ object LobbyService {
         .evalMap(process)
         .flatten
         .evalTap(msg => info"Response with msg: ${msg.toString}")
-//        .collect { case Some(x) => x }
         .through(topic.publish)
 
       info"LobbyService started!" *> Stream(keepAlive, processingStream).parJoinUnbounded.compile.drain
     }
 
-    def process(e: LobbyEvent): F[Stream[F, LobbyOutputMessage]] = {
+    def process(e: LobbyMessageContext): F[Stream[F, LobbyOutputMessage]] = {
       e.message match {
-        //case Register(_)          => none[LobbyOutputMessage]
         case Join(buyIn)          => joinLobby(e.lobbyName, e.user, buyIn)
         case Leave                => leaveLobby(e.lobbyName, e.user)
         case Ready                => updatePlayerReadiness(e.lobbyName, e.user, readiness = true)
@@ -63,7 +62,7 @@ object LobbyService {
       }
     }
       .recover { case err: AppError => Stream(ErrorMessage(err.toString))}
-      .handleErrorWith { err => error"Error occured! ${err.toString}" as Stream[F, LobbyOutputMessage]() }
+      .handleErrorWith { err => error"Error occurred! ${err.toString}" as Stream[F, LobbyOutputMessage]() }
 
     def startGame(lobby: Lobby): F[Lobby] = for {
         gameId <- pokerService.createGame(lobby)
@@ -73,8 +72,12 @@ object LobbyService {
     def updatePlayerReadiness(lobbyName: LobbyName, user: User, readiness: Boolean): F[Stream[F, LobbyOutputMessage]] =
       for {
         lobby <- repository.get(lobbyName)
+        _     <- Either.cond(!lobby.isStarted, (), GameIsAlreadyStarted).liftTo[F]
         lobby <- lobby.updatePlayerReadiness(user, readiness).liftTo[F]
-        lobby <- if (lobby.players.forall(_.ready)) startGame(lobby) else lobby.pure[F]
+        lobby <- if (readiness && lobby.satisfiesSettings && lobby.players.forall(_.ready))
+                  startGame(lobby)
+                 else
+                  lobby.pure[F]
         _     <- repository.save(lobby)
       } yield Stream(LobbyState(lobby = lobby.dto))
 

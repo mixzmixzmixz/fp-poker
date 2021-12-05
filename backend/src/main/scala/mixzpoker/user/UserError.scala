@@ -1,6 +1,7 @@
 package mixzpoker.user
 
 import mixzpoker.AppError
+import mixzpoker.domain.user.UserName
 
 
 sealed trait UserError extends AppError

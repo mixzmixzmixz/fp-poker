@@ -2,9 +2,9 @@ package mixzpoker.game.poker.player
 
 import io.circe.generic.JsonCodec
 import mixzpoker.domain.Token
+import mixzpoker.domain.user.UserId
 import mixzpoker.game.core.Hand
 import mixzpoker.game.poker.PokerError._
-import mixzpoker.user.UserId
 
 
 @JsonCodec

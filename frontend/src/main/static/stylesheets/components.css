@@ -1,7 +1,7 @@
 .base-app-container {
     height: 100%;
     width: 100vw;
-    background: #bbf1ee;
+    background: #E9C891;
     position: relative;
     display: flex;
     flex: 0 0 auto;
@@ -92,7 +92,7 @@
     align-content: flex-start;
     width: auto;
     height: 100%;
-    background: #8e87e2;
+    background: #D06224;
 
     border-right: 1px solid #d3d3d3;
 }
@@ -182,27 +182,27 @@
     display: flex;
     flex: 0 1 300px;
     padding: 20px;
-    background: #fff;
+    background: #E9C891;
 }
 
-.lobby-chat-messages {
+.lobby-chat-area .chat-messages {
     display: flex;
     padding: 10px;
 }
 
-.lobby-chat-buttons {
+.lobby-chat-area .chat-buttons {
     padding: 10px;
     display: flex;
     justify-content: flex-start;
     align-items: center;
 }
 
-.lobby-chat-send-field {
+.lobby-chat-area .chat-send-field {
     padding: 20px;
     width: 100%;
 }
 
-.lobby-chat-send-btn {
+.lobby-chat-area .chat-send-btn {
     display: flex;
     justify-content: center;
 }

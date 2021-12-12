@@ -13,11 +13,8 @@ object LobbyInputMessage {
   case object Leave extends LobbyInputMessage
   case object Ready extends LobbyInputMessage
   case object NotReady extends LobbyInputMessage
-  case class ChatMessage(message: String) extends LobbyInputMessage
 
 
-  implicit val cmDecoder: Decoder[ChatMessage] = deriveDecoder
-  implicit val cmEncoder: Encoder[ChatMessage] = deriveEncoder
 
   implicit val jDecoder: Decoder[Join] = deriveDecoder
   implicit val jEncoder: Encoder[Join] = deriveEncoder
@@ -27,7 +24,6 @@ object LobbyInputMessage {
     case "Ready"       => Right(Ready)
     case "NotReady"    => Right(NotReady)
     case "Join"        => c.downField("params").as[Join]
-    case "ChatMessage" => c.downField("params").as[ChatMessage]
     case _             => Left(DecodingFailure("Invalid message type", List()))
   }
 
@@ -36,7 +32,6 @@ object LobbyInputMessage {
     case Ready          => Json.obj("type" -> Json.fromString("Ready"))
     case NotReady       => Json.obj("type" -> Json.fromString("NotReady"))
     case a: Join        => Json.obj("type" -> Json.fromString("Join"), "params" -> a.asJson)
-    case a: ChatMessage => Json.obj("type" -> Json.fromString("ChatMessage"), "params" -> a.asJson)
   }
 }
 

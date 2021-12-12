@@ -1,23 +1,5 @@
 
 html {
-    --fx-infinity-10: #f4f6f9;
-    --fx-infinity-50: #e9ecf1;
-    --fx-infinity-100: #dce1ea;
-    --fx-infinity-700: #7e92ad;
-    --fx-infinity-900: #566279;
-    --fx-dirty-blue-200: #d3d7e0;
-    --fx-dirty-blue-500: #b2b8c5;
-    --paper-red-50: #ffd7db;
-    --paper-red-100: #ffcdd2;
-    --paper-red-200: #ef9a9a;
-    --paper-red-300: #e57373;
-    --paper-red-400: #ef5350;
-    --paper-red-500: #f44336;
-    --paper-red-600: #e53935;
-    --paper-red-700: #d32f2f;
-    --paper-red-800: #c62828;
-    --paper-red-900: #b71c1c;
-
     display: flex;
     color: text;
 }
@@ -30,7 +12,7 @@ body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-family: 'Roboto', sans-serif;
     line-height: 1.4em;
-    background: #f5f5f5;
+    background: #E9C891;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-weight: 300;
@@ -41,6 +23,8 @@ body {
     font-weight: 700;
     word-wrap: break-word;
     -webkit-font-smoothing: antialiased;
+    --mdc-theme-primary: #AE431E;
+    --mdc-theme-on-primary: #E9C891;
 }
 
 mwc-list {
@@ -52,6 +36,11 @@ mwc-list {
     margin-bottom: 8px;
     width: auto;
 }
+
+mdc-text-field__input {
+    background: #D06224;
+}
+
 
 div {
 }

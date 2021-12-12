@@ -1,7 +1,7 @@
 .poker-game-container {
     display: flex;
-    flex-direction: column;
-    flex-flow: column;
+    flex-direction: row;
+    flex-flow: row;
     height: 100%;
     width: 100%;
 }
@@ -15,6 +15,7 @@
     flex-direction: column;
     box-sizing: border-box;
     align-self: stretch !important;
+    justify-content: space-between;
 }
 
 .poker-game-top {
@@ -32,10 +33,9 @@
 }
 
 .poker-game-mid {
-    padding: 20px;
     display: flex;
     flex: 1 1 auto;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
     align-items: center;
 }
@@ -44,7 +44,74 @@
     display: flex;
     flex: 0 1 200px;
     padding: 20px;
-    background: #fff;
+    background: #E9C891;
     flex-direction: row;
     justify-content: space-around;
+}
+
+.poker-game-player-actions {
+    display: flex;
+    flex-direction: column;
+}
+
+.poker-game-player-actions .bot-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+
+}
+
+.poker-game-player-actions .top-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+.poker-game-player-actions .bet-text {
+    width: 30%;
+}
+
+.poker-game-player-actions .bet-slide {
+    width: 40%;
+}
+
+.poker-game-play-area {
+    display: flex;
+    padding: 20px;
+    position: relative;
+    flex: 0 1 auto;
+}
+
+.poker-chat-area {
+    display: flex;
+    background: #E9C891;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.poker-chat-area .chat-messages {
+    display: flex;
+    padding: 10px;
+    height: auto;
+
+}
+
+.poker-chat-area .chat-buttons {
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.poker-chat-area .chat-send-field {
+    padding: 20px;
+    width: 100%;
+}
+
+.poker-chat-area .chat-send-btn {
+    display: flex;
+    justify-content: center;
 }

@@ -9,6 +9,7 @@ import tofu.syntax.logging._
 
 import mixzpoker.AppError
 import mixzpoker.domain.Token
+import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
 import mixzpoker.domain.game.GameId
@@ -22,6 +23,7 @@ import mixzpoker.lobby.Player
 trait PokerGameManager[F[_]] {
   def getGame: F[PokerGame]
   def topic: Topic[F, PokerOutputMessage]
+  def chatTopic: Topic[F, ChatOutputMessage]
   def id: GameId
   def processEvent(ec: PokerEventContext): F[PokerOutputMessage]
 }
@@ -37,10 +39,12 @@ object PokerGameManager {
                                       ))
       g        <- gameRef.get
       _topic   <- Topic[F, PokerOutputMessage](PokerOutputMessage.GameState(g))
+      _chatTopic   <- Topic[F, ChatOutputMessage](ChatOutputMessage.KeepAlive)
     } yield new PokerGameManager[F] {
 
       override def id: GameId = gameId
       override def topic: Topic[F, PokerOutputMessage] = _topic
+      override def chatTopic: Topic[F, ChatOutputMessage] = _chatTopic
       override def getGame: F[PokerGame] = gameRef.get
 
       override def processEvent(ec: PokerEventContext): F[PokerOutputMessage] = {

@@ -14,8 +14,8 @@ import io.circe.syntax.EncoderOps
 import io.circe.parser.decode
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import mixzpoker.auth.AuthError
+import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
 import mixzpoker.user.User
 import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage}
@@ -40,7 +40,8 @@ class PokerApi[F[_]: Sync: Logging](
   }
 
   def routes: HttpRoutes[F] = HttpRoutes.of[F] {
-    case GET -> Root / "poker" / GameIdVar(gameId: GameId) / "ws" => pokerWS(gameId)
+    case GET -> Root / "poker" / GameIdVar(gameId: GameId) / "ws"          => pokerWS(gameId)
+    case GET -> Root / "poker" / GameIdVar(gameId: GameId) / "chat" / "ws" => chatWS(gameId)
   }
 
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {
@@ -48,20 +49,19 @@ class PokerApi[F[_]: Sync: Logging](
   }
 
   private def pokerWS(gameId: GameId): F[Response[F]] = {
-    //todo close stream if the first msg is not Register()/ Not correct
     def processInput(queue: Queue[F, PokerEventContext], topic: Topic[F, PokerOutputMessage])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
       def processStreamInput(stream: Stream[F, String], user: User): Stream[F, PokerEventContext] =
         stream.map { text =>
           decode[PokerPlayerEvent](text).leftMap(_.toString)
-        }.evalMap {
-          case Left(err)     => info"$err".as(err.asLeft[PokerPlayerEvent])
-          case Right(msg)    => info"Event: GameId=${gameId.toString}, message=${msg.toString}".as(msg.asRight[String])
+        }.evalTap {
+          case Left(err)  => error"$err"
+          case Right(msg) => info"Event: GameId=${gameId.toString}, message=${msg.toString}"
         }.collect {
-          case Right(msg)    => msg
+          case Right(msg) => msg
         }.evalMap { e =>
-          UUID.randomUUID().pure[F].map(uuid =>
+          { UUID.randomUUID() }.pure[F].map(uuid =>
             PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, Some(user.id), e)
           )
         }
@@ -88,6 +88,50 @@ class PokerApi[F[_]: Sync: Logging](
       topic     <- pokerService.getTopic(gameId)
       toClient  =  topic.subscribe(1000).map(msg => Text(msg.asJson.noSpaces))
       ws        <- WebSocketBuilder[F].build(toClient, processInput(pokerService.queue, topic))
+    } yield ws
+  }.recoverWith {
+    case GameError.NoSuchGame => NotFound()
+    case _                    => InternalServerError()
+  }
+
+  private def chatWS(gameId: GameId): F[Response[F]] = {
+    def processInput(topic: Topic[F, ChatOutputMessage])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
+
+      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, ChatOutputMessage] =
+        stream.map { text =>
+          decode[ChatInputMessage](text).leftMap(_.toString)
+        }.evalTap {
+          case Left(err)  => error"$err"
+          case Right(msg) => info"ChatMsg: GameId=${gameId.toString}, message=${msg.toString}"
+        }.collect {
+          case Right(msg) => msg
+        }.map {
+          case ChatInputMessage.ChatMessage(message) => ChatOutputMessage.ChatMessageFrom(message, user.dto)
+        }
+
+      //todo simplify. all the messages go through the pipe
+      val parsedWebSocketInput: Stream[F, ChatOutputMessage] = wsfStream.collect {
+        case Text(text, _) => text.trim
+        case Close(_)      => "disconnected"
+      }.pull.uncons1.flatMap {
+        case None                  => Pull.done: Pull[F, ChatOutputMessage, Unit]
+        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
+          err =>
+            topic.publish1(ChatOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}"))
+              *> (Pull.done: Pull[F, ChatOutputMessage, Unit]).pure[F],
+          user =>
+            (processStreamInput(stream, user).pull.echo: Pull[F, ChatOutputMessage, Unit]).pure[F]
+        )}).flatten
+      }.stream
+
+      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(topic.publish)
+    }
+
+    for {
+      _         <- pokerService.ensureExists(gameId)
+      topic     <- pokerService.getChatTopic(gameId)
+      toClient  =  topic.subscribe(1000).map(msg => Text(msg.asJson.noSpaces))
+      ws        <- WebSocketBuilder[F].build(toClient, processInput(topic))
     } yield ws
   }.recoverWith {
     case GameError.NoSuchGame => NotFound()

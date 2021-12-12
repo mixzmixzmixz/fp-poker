@@ -7,13 +7,13 @@ import io.laminext.websocket.WebSocket
 import io.circe.syntax._
 import io.circe.parser.decode
 import org.scalajs.dom
+
 import scala.concurrent.duration._
 import scala.util.Try
-
-import laminar.webcomponents.material.{Button, Fab, Icon, Textarea, Textfield, List => MList}
+import laminar.webcomponents.material.{Button, Icon, List => MList}
+import mixzpoker.components.Chat
 import mixzpoker.components.Dialogs._
 import mixzpoker.domain.game.GameSettings
-import mixzpoker.domain.user.UserDto.UserDto
 import mixzpoker.{AppContext, AppError, Config, Page}
 import mixzpoker.domain.lobby.LobbyDto.LobbyDto
 import mixzpoker.domain.lobby.{LobbyInputMessage, LobbyOutputMessage}
@@ -21,9 +21,6 @@ import mixzpoker.domain.lobby.LobbyOutputMessage._
 import mixzpoker.domain.lobby.LobbyInputMessage._
 
 object LobbyPage {
-  case class ChatState(messages: List[(UserDto, String)] = List.empty) {
-    def addMessage(user: UserDto, message: String): ChatState = copy(messages = (user, message) :: messages)
-  }
 
   object requests {
     def getLobbyRequest(name: String)(implicit appContext: Var[AppContext]): EventStream[Try[LobbyDto]] =
@@ -47,19 +44,21 @@ object LobbyPage {
       val lobbyVar              = Var[LobbyDto](lobbyInit)
       val isSettingsDialogOpen  = Var(false)
       val isJoinLobbyDialogOpen = Var(false)
-      val chatState             = Var(ChatState())
       val $me                   = lobbyVar.signal.combineWith(appContext.signal.map(_.user)).map {
                                     case (l, u) => l.players.find(_.user.name == u.name)
                                   }
+      val (chatState, chatArea) = Chat.create(
+                                    s"${Config.wsRootEndpoint}/lobby/${lobbyInit.name}/chat/ws",
+                                    "lobby-chat-area"
+                                  )
 
       def processServerMessages(message: LobbyOutputMessage): Unit = {
         dom.console.log(s"receive a message from server: ${message.toString}")
         message match {
-          case KeepAlive                      => ()
-          case LobbyState(lobby)              => lobbyVar.set(lobby)
-          case ChatMessageFrom(message, user) => chatState.update(_.addMessage(user, message))
-          case ErrorMessage(message)          => appContext.now().error.set(AppError.GeneralError(message))
-          case GameStarted(gameId)            => appContext.now().error.set(AppError.GeneralError(s"PokerGame have begun! $gameId"))
+          case KeepAlive             => ()
+          case LobbyState(lobby)     => lobbyVar.set(lobby)
+          case ErrorMessage(message) => appContext.now().error.set(AppError.GeneralError(message))
+          case GameStarted(gameId)   => appContext.now().error.set(AppError.GeneralError(s"PokerGame have begun! $gameId"))
         }
       }
 
@@ -76,45 +75,6 @@ object LobbyPage {
         _ => cls("lobby-heading-btn"),
         _ => onClick --> { _ => ws.sendOne(Leave) }
       )
-
-      val textarea = Textarea(
-        _ => cls("lobby-chat-messages"),
-        _.`value` <-- chatState.signal.map(
-          _.messages.map { case (user, msg) => s"${user.name}: $msg"}.reverse.mkString("\n")
-        ),
-        _.`disabled` := true,
-        _.`rows` := 8, _.`cols` := 130
-      )
-
-      def ChatArea(): HtmlElement = {
-        val message = Var("")
-        div(
-          cls("lobby-chat-area"), flexDirection.column,
-          textarea,
-          div(
-            cls("lobby-chat-buttons"), flexDirection.row,
-            Textfield(
-              _ => cls("lobby-chat-send-field"),
-              _.`value` <-- message,
-              _ => inContext { thisNode => onInput.map(_ => thisNode.ref.`value`) --> message },
-              _.`outlined` := true,
-              _.`charCounter` := true,
-              _.`maxLength` := 1000,
-              _ => onKeyPress.filter(e => (e.keyCode == dom.KeyCode.Enter) && message.now().nonEmpty) --> { _ =>
-                ws.sendOne(ChatMessage(message.now()))
-                message.set("")
-              }
-            ),
-            Fab(
-              _.`icon` := "send",
-              _ => onClick.filter(_ => message.now().nonEmpty) --> { _ =>
-                ws.sendOne(ChatMessage(message.now()))
-                message.set("")
-              }
-            )
-          )
-        )
-      }
 
       def MainArea($settings: Signal[GameSettings]): HtmlElement = {
         div(
@@ -200,12 +160,10 @@ object LobbyPage {
         div(cls("mixz-container"), flexDirection.row,
           div(cls("lobby-main"), flexDirection.column,
             child <-- lobbyVar.signal.map { l =>
-              if (l.gameId.isDefined)
-                GameStartProcess()
-              else
-                MainArea(lobbyVar.signal.map(_.gameSettings))
+              if (l.gameId.isDefined) GameStartProcess()
+              else MainArea(lobbyVar.signal.map(_.gameSettings))
             },
-            ChatArea()
+            chatArea
           ),
           div(cls("lobby-players"), child <-- lobbyVar.signal.map(Users))
         )

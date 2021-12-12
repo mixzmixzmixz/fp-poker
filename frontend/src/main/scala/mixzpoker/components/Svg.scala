@@ -167,13 +167,13 @@ object Svg {
     svg.g(
       svg.idAttr := "Table",
       svg.path(
-        svg.fill := "#333333",
+        svg.fill := "#AE431E",
         svg.stroke := "#000000",
         svg.strokeMiterLimit := "10",
         svg.d := "M752.582,552.5c113.505,0,205.518-121.348,205.518-272.12C958.1,129.608,866.087,8.5,752.582,8.5H207.418C93.914,8.5,1.9,129.608,1.9,280.38c0,150.772,92.014,272.12,205.518,272.12H752.582z"
       ),
       svg.path(
-        svg.fill := "#5DB779",
+        svg.fill := "#8A8635",
         svg.stroke := "#000000",
         svg.strokeMiterLimit := "10",
         svg.d := "M720.313,505.5C820.38,505.5,901.5,405.343,901.5,280.9c0-124.441-81.12-224.4-181.188-224.4H239.688C139.62,56.5,58.5,156.459,58.5,280.9s81.12,224.6,181.188,224.6H720.313z"
@@ -289,9 +289,7 @@ object Svg {
     }
 
     val playerCards =
-      svg.g(
-        player.hand.cards.zipWithIndex.map { case (card, i) => OpenCard(card, x + 130 + i * 50, y) }
-      )
+      svg.g(player.hand.cards.zipWithIndex.map { case (card, i) => OpenCard(card, x + 130 + i * 50, y) })
 
 
     svg.g(
@@ -302,7 +300,7 @@ object Svg {
         svg.ry := "3",
         svg.width := "130",
         svg.height := "60",
-        svg.fill := "#BBBBBB"
+        svg.fill := "#D06224"
       ),
       PlayerAvatar(x, y+30, 0.005, -0.005),
       svg.text(

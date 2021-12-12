@@ -6,10 +6,11 @@ import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import java.util.UUID
+
 import mixzpoker.game.{GameError, GameRecord}
 import mixzpoker.game.GameError._
+import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.poker.{PokerEventContext, PokerGame, PokerOutputMessage, PokerSettings}
 import mixzpoker.domain.game.GameId
 import mixzpoker.lobby.Lobby
@@ -21,6 +22,7 @@ trait PokerService[F[_]] {
   def createGame(lobby: Lobby): F[GameId]
   def ensureExists(gameId: GameId): F[Unit]
   def getTopic(gameId: GameId): F[Topic[F, PokerOutputMessage]]
+  def getChatTopic(gameId: GameId): F[Topic[F, ChatOutputMessage]]
   def queue: Queue[F, PokerEventContext]
 }
 
@@ -73,6 +75,9 @@ object PokerService {
 
     override def getTopic(gameId: GameId): F[Topic[F, PokerOutputMessage]] =
       pokerManagers.get.flatMap(_.get(gameId).map(_.topic).toRight[GameError](NoSuchGame).liftTo[F])
+
+    override def getChatTopic(gameId: GameId): F[Topic[F, ChatOutputMessage]] =
+      pokerManagers.get.flatMap(_.get(gameId).map(_.chatTopic).toRight[GameError](NoSuchGame).liftTo[F])
 
   }
 }

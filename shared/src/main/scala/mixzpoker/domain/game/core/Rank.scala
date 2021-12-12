@@ -1,23 +1,23 @@
-package mixzpoker.game.core
+package mixzpoker.domain.game.core
 
 import io.circe.{Decoder, Encoder}
 
-sealed trait Rank
+sealed trait Rank { def show: String }
 
 object Rank {
-  case object Ace extends Rank
-  case object King extends Rank
-  case object Queen extends Rank
-  case object Jack extends Rank
-  case object Ten extends Rank
-  case object Nine extends Rank
-  case object Eight extends Rank
-  case object Seven extends Rank
-  case object Six extends Rank
-  case object Five extends Rank
-  case object Four extends Rank
-  case object Three extends Rank
-  case object Two extends Rank
+  case object Ace extends Rank    { def show: String = "A" }
+  case object King extends Rank   { def show: String = "K" }
+  case object Queen extends Rank  { def show: String = "Q" }
+  case object Jack extends Rank   { def show: String = "J" }
+  case object Ten extends Rank    { def show: String = "10"}
+  case object Nine extends Rank   { def show: String = "9" }
+  case object Eight extends Rank  { def show: String = "8" }
+  case object Seven extends Rank  { def show: String = "7" }
+  case object Six extends Rank    { def show: String = "6" }
+  case object Five extends Rank   { def show: String = "5" }
+  case object Four extends Rank   { def show: String = "4" }
+  case object Three extends Rank  { def show: String = "3" }
+  case object Two extends Rank    { def show: String = "2" }
 
   val all: Iterable[Rank] = List(Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace)
 

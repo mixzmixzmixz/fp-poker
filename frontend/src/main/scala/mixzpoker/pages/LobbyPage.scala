@@ -7,9 +7,9 @@ import io.laminext.websocket.WebSocket
 import io.circe.syntax._
 import io.circe.parser.decode
 import org.scalajs.dom
-
 import scala.concurrent.duration._
 import scala.util.Try
+
 import laminar.webcomponents.material.{Button, Fab, Icon, Textarea, Textfield, List => MList}
 import mixzpoker.components.Dialogs._
 import mixzpoker.domain.game.GameSettings
@@ -59,7 +59,7 @@ object LobbyPage {
           case LobbyState(lobby)              => lobbyVar.set(lobby)
           case ChatMessageFrom(message, user) => chatState.update(_.addMessage(user, message))
           case ErrorMessage(message)          => appContext.now().error.set(AppError.GeneralError(message))
-          case GameStarted(gameId)            => appContext.now().error.set(AppError.GeneralError(s"Game have begun! $gameId"))
+          case GameStarted(gameId)            => appContext.now().error.set(AppError.GeneralError(s"PokerGame have begun! $gameId"))
         }
       }
 
@@ -121,7 +121,7 @@ object LobbyPage {
           cls("lobby-game-area"),
           p(
             cls := "lobby-game-area-text-line",
-            child.text <-- lobbyVar.signal.map(l => s"Game: ${l.gameType.toString}")
+            child.text <-- lobbyVar.signal.map(l => s"PokerGame: ${l.gameType.toString}")
           ),
           p(
             cls := "lobby-game-area-text-line",
@@ -150,7 +150,7 @@ object LobbyPage {
           cls("lobby-game-area"),
           p(
             cls := "lobby-game-area-text-line",
-            "Everybody is ready! Game is about to start!"
+            "Everybody is ready! PokerGame is about to start!"
           )
         )
       }

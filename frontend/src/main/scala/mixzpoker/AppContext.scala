@@ -5,6 +5,7 @@ import AppState._
 import com.raquo.laminar.api.L._
 import io.laminext.syntax.core.{StoredString, storedString}
 import mixzpoker.AppContext.noUser
+import mixzpoker.domain.user.UserId
 
 case class AppContext(
   state: AppState,
@@ -24,7 +25,7 @@ case class AppContext(
 }
 
 object AppContext {
-  def noUser: UserDto = UserDto(name = "--", tokens = 0)
+  def noUser: UserDto = UserDto(id = UserId(0), name = "--", tokens = 0)
 
   def init: AppContext =
     AppContext(NotLoaded, noUser, "", storedString("authToken", ""), Var(AppError.NoError))

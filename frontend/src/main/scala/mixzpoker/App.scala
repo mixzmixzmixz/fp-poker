@@ -31,11 +31,16 @@ object App {
     Route.static(Page.SignIn,  root / "sign-in" / endOfSegments),
     Route.static(Page.Redirect,root /             endOfSegments),
     Route.static(Page.Lobbies, root / "lobbies" / endOfSegments),
-    Route.static(Page.Games,   root / "games"   / endOfSegments),
+    Route.static(Page.PokerGames,   root / "games"   / endOfSegments),
     Route[Page.Lobby, String](
       encode = lobbyPage => lobbyPage.name,
       decode = arg => Page.Lobby(name = arg),
       pattern = root / "lobby" / segment[String] / endOfSegments
+    ),
+    Route[Page.PokerGame, String](
+      encode = gamePage => gamePage.id,
+      decode = arg => Page.PokerGame(id = arg),
+      pattern = root / "game" / segment[String] / endOfSegments
     )
   )
 
@@ -94,13 +99,15 @@ object App {
   private def renderAppPage($appPage: Signal[Page.AppPage]): HtmlElement = {
     val appPageSplitter = SplitRender[Page.AppPage, HtmlElement]($appPage)
       .collectStatic(Page.Lobbies) { LobbiesPage() }
-      .collectStatic(Page.Games)   { GamesPage() }
+      .collectStatic(Page.PokerGames)   { PokerGamesPage() }
       .collectSignal[Page.Lobby]   { $lobbyPage => LobbyPage($lobbyPage) }
+      .collectSignal[Page.PokerGame]    { $gamePage  => PokerGamePage($gamePage) }
 
     val buttonsSplitter = SplitRender[Page.AppPage, HtmlElement]($appPage)
       .collectStatic(Page.Lobbies) { LobbiesPage.controlButtons() }
-      .collectStatic(Page.Games)   { GamesPage.controlButtons() }
+      .collectStatic(Page.PokerGames)   { PokerGamesPage.controlButtons() }
       .collectSignal[Page.Lobby]   { _ => LobbyPage.controlButtons() }
+      .collectSignal[Page.PokerGame]    { _ => PokerGamePage.controlButtons() }
 
     TopAppBarFixed(
       _.`centerTitle` := true,
@@ -140,9 +147,9 @@ object App {
           _.`tabindex` := -1,
           _.`graphic` := "large",
           _.slots.graphic(Icon().amend(span("chevron_right"))),
-          _.slots.default(span("Games", cls("mixz-panel-text"))),
+          _.slots.default(span("PokerGames", cls("mixz-panel-text"))),
           _ => width := "200px",
-          _ => onClick --> { _ => router.pushState(Page.Games)}
+          _ => onClick --> { _ => router.pushState(Page.PokerGames)}
         )
       )
     )

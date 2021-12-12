@@ -1,4 +1,4 @@
-package mixzpoker.game.poker.player
+package mixzpoker.domain.game.poker
 
 import io.circe.{Decoder, Encoder}
 

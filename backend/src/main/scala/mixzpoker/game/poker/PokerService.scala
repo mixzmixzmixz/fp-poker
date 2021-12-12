@@ -10,9 +10,7 @@ import tofu.syntax.logging._
 import java.util.UUID
 import mixzpoker.game.{GameError, GameRecord}
 import mixzpoker.game.GameError._
-import mixzpoker.game.poker.game.PokerGame
-import mixzpoker.infrastructure.broker.Broker
-import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage, PokerSettings}
+import mixzpoker.domain.game.poker.{PokerEventContext, PokerGame, PokerOutputMessage, PokerSettings}
 import mixzpoker.domain.game.GameId
 import mixzpoker.lobby.Lobby
 
@@ -27,7 +25,7 @@ trait PokerService[F[_]] {
 }
 
 object PokerService {
-  def of[F[_]: ConcurrentEffect: Logging](broker: Broker[F]): F[PokerService[F]] = for {
+  def of[F[_]: ConcurrentEffect: Logging]: F[PokerService[F]] = for {
     pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
     //this is different and should be placed somewhere in reliable store in order to restore pokerManager if it fails
     gameRecords   <- Ref.of(Map.empty[GameId, GameRecord])
@@ -36,16 +34,18 @@ object PokerService {
     override def queue: Queue[F, PokerEventContext] = _queue
 
     override def run: F[Unit] =
-      info"Run poker App!" *> queue.dequeue
-        .evalTap(e => info"Got event: ${e.toString}")
-        .evalMap(processEvent)
-        .evalTap(_ => info"Successfully proceed an event")
-        .compile
-        .drain
+      info"Run poker App!" *>
+        queue
+          .dequeue
+          .evalTap(e => info"Got event: ${e.toString}")
+          .evalMap(processEvent)
+          .evalTap(_ => info"Successfully proceed an event")
+          .compile
+          .drain
 
     def processEvent(e: PokerEventContext): F[Unit] = for {
       pm  <- pokerManagers.get.map(_.get(e.gameId).toRight[GameError](NoSuchGame)).flatMap(_.liftTo[F])
-      res <- pm.processEvent(e.event)
+      res <- pm.processEvent(e)
       _   <- pm.topic.publish1(res)
     } yield ()
 
@@ -53,15 +53,15 @@ object PokerService {
       .get
       .map(_.get(gameId).toRight[GameError](NoSuchGame))
       .flatMap(_.liftTo[F])
-      .flatMap(_.game)
+      .flatMap(_.getGame)
 
 
     override def createGame(lobby: Lobby): F[GameId] = for {
       _      <- info"Create GameRecord!"
-      uuid   <- UUID.randomUUID().pure[F]
+      uuid   <- { UUID.randomUUID() }.pure[F]
       gameId =  GameId.fromUUID(uuid)
       gm     <- lobby.gameSettings match {
-        case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, broker)
+        case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, _queue)
         case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
       }
       _      <- pokerManagers.update { _.updated(gameId, gm) }

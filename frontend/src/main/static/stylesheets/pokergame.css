@@ -1,0 +1,50 @@
+.poker-game-container {
+    display: flex;
+    flex-direction: column;
+    flex-flow: column;
+    height: 100%;
+    width: 100%;
+}
+
+.poker-game-main {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    box-sizing: border-box;
+    align-self: stretch !important;
+}
+
+.poker-game-top {
+    display: flex;
+    padding: 20px;
+    position: relative;
+    flex-direction: row;
+    flex: 0 1 auto;
+    justify-content: space-around;
+
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: rgba(0, 0, 0, 0.12);
+
+}
+
+.poker-game-mid {
+    padding: 20px;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.poker-game-bot {
+    display: flex;
+    flex: 0 1 200px;
+    padding: 20px;
+    background: #fff;
+    flex-direction: row;
+    justify-content: space-around;
+}

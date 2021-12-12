@@ -18,8 +18,8 @@ import tofu.syntax.logging._
 import mixzpoker.auth.AuthError
 import mixzpoker.user.User
 import mixzpoker.domain.game.{GameEventId, GameId}
-import mixzpoker.domain.game.poker.PokerInputMessage._
-import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerInputMessage, PokerOutputMessage}
+import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage}
+import mixzpoker.domain.game.poker.PokerEvent.PokerPlayerEvent
 import mixzpoker.game.GameError
 import mixzpoker.lobby.LobbyRepository
 
@@ -47,7 +47,6 @@ class PokerApi[F[_]: Sync: Logging](
     case GET -> Root / "poker" as user => getPokerGames(user)
   }
 
-
   private def pokerWS(gameId: GameId): F[Response[F]] = {
     //todo close stream if the first msg is not Register()/ Not correct
     def processInput(queue: Queue[F, PokerEventContext], topic: Topic[F, PokerOutputMessage])
@@ -55,23 +54,15 @@ class PokerApi[F[_]: Sync: Logging](
 
       def processStreamInput(stream: Stream[F, String], user: User): Stream[F, PokerEventContext] =
         stream.map { text =>
-          decode[PokerInputMessage](text).leftMap(_.toString)
+          decode[PokerPlayerEvent](text).leftMap(_.toString)
         }.evalMap {
-          case Left(err)     => info"$err".as(err.asLeft[PokerInputMessage])
+          case Left(err)     => info"$err".as(err.asLeft[PokerPlayerEvent])
           case Right(msg)    => info"Event: GameId=${gameId.toString}, message=${msg.toString}".as(msg.asRight[String])
         }.collect {
           case Right(msg)    => msg
-        }.map[PokerEvent] {
-          case Join(buyIn)   => PokerEvent.Join(user.id, buyIn)
-          case Leave         => PokerEvent.Leave(user.id)
-          case Fold          => PokerEvent.Fold(user.id)
-          case Check         => PokerEvent.Check(user.id)
-          case Call(amount)  => PokerEvent.Call(user.id, amount)
-          case Raise(amount) => PokerEvent.Raise(user.id, amount)
-          case AllIn(amount) => PokerEvent.AllIn(user.id, amount)
         }.evalMap { e =>
           UUID.randomUUID().pure[F].map(uuid =>
-            PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, e)
+            PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, Some(user.id), e)
           )
         }
 
@@ -102,7 +93,6 @@ class PokerApi[F[_]: Sync: Logging](
     case GameError.NoSuchGame => NotFound()
     case _                    => InternalServerError()
   }
-
 
   private def getPokerGames(user: User): F[Response[F]] = {
     // todo mb filter games by user rights or smth

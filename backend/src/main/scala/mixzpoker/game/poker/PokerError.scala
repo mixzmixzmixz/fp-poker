@@ -15,6 +15,10 @@ object PokerError {
   case class WrongDataFormat(reason: String) extends PokerError
   case object NotEnoughPlayers extends PokerError
   case object TooManyPlayers extends PokerError
+  case object BuyInTooLow extends PokerError
+  case object BuyInTooHigh extends PokerError
+  case object NoEmptySeat extends PokerError
+  case object NoSuchPlayer extends PokerError
   case class NoPlayerOnSeat(seat: Int) extends PokerError
   case class NoPlayerWithUserId(userId: UserId) extends PokerError
   case object NotEnoughTokensToCall extends PokerError

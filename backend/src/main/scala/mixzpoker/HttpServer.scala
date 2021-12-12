@@ -31,8 +31,8 @@ object HttpServer {
       authUserRepo <- AuthUserRepository.inMemory
       lobbyRepo    <- LobbyRepository.inMemory
       broker       <- Broker.fromQueues[F](32)
-      _            <- broker.createTopic("poker-game-topic")
-      pokerService <- PokerService.of(broker)
+      _            <- broker.createTopic("poker-getGame-topic")
+      pokerService <- PokerService.of
       lobbyService <- LobbyService.of(lobbyRepo, pokerService)
 
       fiber1 <- ConcurrentEffect[F].start(pokerService.run)
@@ -48,6 +48,7 @@ object HttpServer {
         helloWorld.routes <+>
         authApi.routes <+>
         lobbyApi.routes <+>
+        pokerApi.routes <+>
         authApi.middleware(
           userApi.authedRoutes <+>
           pokerApi.authedRoutes <+>

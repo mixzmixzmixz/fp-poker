@@ -32,7 +32,7 @@ object User {
   }
 
   case class RegularUser(id: UserId, name: UserName, password: UserPassword, amount: Token) extends User {
-    override def dto: UserDto = UserDto(id = id.toString, name = name.toString, tokens = amount)
+    override def dto: UserDto = UserDto(id = id, name = name.toString, tokens = amount)
 
     override def checkPassword(pw: String): ErrOr[Unit] =
       Either.cond(password == UserPassword.fromString(pw), (), WrongPassword)

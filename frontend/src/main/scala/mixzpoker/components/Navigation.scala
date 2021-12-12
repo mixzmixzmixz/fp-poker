@@ -1,8 +1,9 @@
 package mixzpoker.components
 
 import com.raquo.laminar.api.L._
+import laminar.webcomponents.material.Button
 import org.scalajs.dom
-import mixzpoker.Page
+import mixzpoker.{AppContext, Page}
 import mixzpoker.App.router
 
 object Navigation {
@@ -18,6 +19,23 @@ object Navigation {
       .preventDefault
       --> (_ => router.pushState(page))
       ).bind(el)
+  }
+
+  def DefaultTopButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
+    div(
+      Button(
+        _.`raised` := true,
+        _.styles.buttonOutlineColor := "#6200ed",
+        _.slots.icon(span("🚀")),
+        _.`label` := "DefButton1"
+      ),
+      Button(
+        _.`raised` := true,
+        _.styles.buttonOutlineColor := "#6200ed",
+        _.slots.icon(span("🚀")),
+        _.`label` := "RAKETA"
+      )
+    )
   }
 
 }

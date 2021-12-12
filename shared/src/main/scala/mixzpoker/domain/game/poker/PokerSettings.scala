@@ -33,6 +33,9 @@ object PokerSettings {
       ))
   }
 
+  def defaults: PokerSettings =
+    PokerSettings(2, 9, 2, 1, 2, 0, 40, Int.MaxValue)
+
   implicit val pokerSettingsEncoder: Encoder[PokerSettings] = deriveEncoder
   implicit val pokerSettingsDecoder: Decoder[PokerSettings] = deriveDecoder
 }

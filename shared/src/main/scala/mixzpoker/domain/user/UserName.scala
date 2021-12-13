@@ -7,6 +7,8 @@ case class UserName(value: String) extends AnyVal {
 }
 
 object UserName {
+  def empty: UserName = UserName("--")
+
   def fromString(str: String): Option[UserName] =
     Some(UserName(str))
 

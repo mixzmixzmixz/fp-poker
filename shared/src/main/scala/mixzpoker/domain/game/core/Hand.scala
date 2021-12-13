@@ -8,6 +8,7 @@ case class Hand(cards: List[Card]) {
   def lastOption: Option[Card] = cards.headOption
 
   def addCard(card: Card): Hand = copy(cards = card::cards)
+  def addCards(cs: List[Card]): Hand = copy(cards = cs:::cards)
 
   def isEmpty: Boolean = cards.isEmpty
   def nonEmpty: Boolean = cards.nonEmpty

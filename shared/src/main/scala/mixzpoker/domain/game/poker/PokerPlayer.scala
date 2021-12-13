@@ -14,7 +14,9 @@ case class PokerPlayer(
   tokens: Token,
   hand: Hand,
   state: PokerPlayerState
-)
+) {
+  def hasCards: Boolean = hand.nonEmpty
+}
 
 
 object PokerPlayer {

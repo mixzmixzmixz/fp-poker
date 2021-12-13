@@ -10,7 +10,7 @@ object UserDto {
 
   case class SignInDto(userName: String, password: String)
 
-  case class UserDto(id: UserId, name: String, tokens: Int)
+  case class UserDto(id: UserId, name: UserName, tokens: Int)
 
   implicit val signUpDtoDecoder: Decoder[SignUpDto] = deriveDecoder
   implicit val signUpDtoEncoder: Encoder[SignUpDto] = deriveEncoder

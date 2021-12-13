@@ -12,6 +12,7 @@ import mixzpoker.domain.Token
 import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
+import mixzpoker.domain.game.poker.PokerOutputMessage._
 import mixzpoker.domain.game.GameId
 import mixzpoker.domain.game.core.Hand
 import mixzpoker.domain.user.{UserId, UserName}
@@ -33,14 +34,16 @@ object PokerGameManager {
     gameId: GameId, settings: PokerSettings, players: List[Player], queue: Queue[F, PokerEventContext]
   ): F[PokerGameManager[F]] =
     for {
-      gameRef  <- Ref.of[F, PokerGame](PokerGame.create(
+      gameRef    <- Ref.of[F, PokerGame](PokerGame.create(
                                         gameId, settings,
                                         players.map(p => (p.user.id, p.user.name, p.buyIn))
                                       ))
-      g        <- gameRef.get
-      _topic   <- Topic[F, PokerOutputMessage](PokerOutputMessage.GameState(g))
-      _chatTopic   <- Topic[F, ChatOutputMessage](ChatOutputMessage.KeepAlive)
+      g          <- gameRef.get
+      _topic     <- Topic[F, PokerOutputMessage](PokerOutputMessage.GameState(g))
+      _chatTopic <- Topic[F, ChatOutputMessage](ChatOutputMessage.KeepAlive)
     } yield new PokerGameManager[F] {
+
+      val secondsForAction: Int = 30 //todo move to settings
 
       override def id: GameId = gameId
       override def topic: Topic[F, PokerOutputMessage] = _topic
@@ -58,7 +61,11 @@ object PokerGameManager {
         } yield PokerOutputMessage.GameState(game = game): PokerOutputMessage
       }.recover {
         case err: AppError => PokerOutputMessage.ErrorMessage(err.toString): PokerOutputMessage
-      }
+      }.handleErrorWith(err =>
+        error"got some err: ${err.getMessage}" *>
+        error"stacktrace: ${err.getStackTrace.mkString("\n")}" *>
+          (PokerOutputMessage.ErrorMessage(err.toString): PokerOutputMessage).pure[F]
+      )
 
       def processPlayerEvent(game: PokerGame, event: PokerPlayerEvent, userId: UserId): F[PokerGame] = {
         event match {
@@ -75,7 +82,13 @@ object PokerGameManager {
 
       def processGameEvent(game: PokerGame, event: PokerGameEvent): F[PokerGame] = {
         event match {
-          case RoundStarts => ???
+          case RoundStarts =>
+            for {
+              g <- roundStarts(game).liftTo[F]
+              _ <- _topic.publish1(RoundStart(1))
+              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
+              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
+            } yield g
           case PreFlop     => ???
           case Flop        => ???
           case Turn        => ???
@@ -178,6 +191,26 @@ object PokerGameManager {
                     betToCall = if (pBet > game.pot.betToCall) pBet else game.pot.betToCall
                   )
       } yield game.updatePlayer(player).copy(pot = pot)
+
+      def betBlind(game: PokerGame, player: PokerPlayer, blind: Token): Either[PokerError, PokerGame] = for {
+        p   <- decreaseBalance(player, blind)
+        pot =  game.pot.copy(
+                  playerBetsThisRound = game.pot.playerBetsThisRound.updated(p.userId, blind),
+                  playerBets = game.pot.playerBets.updated(p.userId, blind),
+                  betToCall = blind
+                )
+      } yield game.updatePlayer(p).copy(pot = pot, playerToActSeat = game.nthAfter(1, seat = game.playerToActSeat))
+
+      def roundStarts(_game: PokerGame): Either[PokerError, PokerGame] = {
+        val game = _game.nextRound()
+        for {
+          sbPlayer <- game.playerBySeat(game.smallBlindSeat).toRight(NoSuchPlayer)
+          game     <- betBlind(game, sbPlayer, Math.min(sbPlayer.tokens, game.settings.smallBlind))
+          bbPlayer <- game.playerBySeat(game.bigBlindSeat).toRight(NoSuchPlayer)
+          game     <- betBlind(game, bbPlayer, Math.min(bbPlayer.tokens, game.settings.bigBlind))
+        } yield game
+      }
+
     }
 
 }

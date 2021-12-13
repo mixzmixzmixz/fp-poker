@@ -1,6 +1,7 @@
 package mixzpoker.components
 
 import com.raquo.laminar.api.L._
+import mixzpoker.domain.Token
 import mixzpoker.domain.game.core.Card
 import mixzpoker.domain.game.poker.PokerPlayer
 
@@ -37,8 +38,17 @@ object Svg {
     )
 
   def DealerButton(position: Int): SvgElement = {
-    val x = 650
-    val y = 368
+    val (x,y) = position match {
+      case 0 => (390, 460)
+      case 1 => (240, 460)
+      case 2 => (110, 300)
+      case 3 => (110, 180)
+      case 4 => (250, 95)
+      case 5 => (400, 95)
+      case 6 => (550, 95)
+      case 7 => (650, 180)
+      case 8 => (650, 300)
+    }
     svg.g(
       svg.idAttr := "DealerButton",
       svg.circle(
@@ -124,11 +134,10 @@ object Svg {
       case 6 => "matrix(0.9397 -0.342 -0.342 -0.9397 648.25 100.9028)"
       case 7 => "matrix(0.866 0.5 0.5 -0.866 811.46 165.4668)"
       case 8 => "matrix(-0.342 0.9397 0.9397 0.342 810.2969 399.3008)"
-      case 9 => "matrix(-0.9397 0.342 0.342 0.9397 647.5391 451.4072)"
     }
 
     val transformTopCard = position match {
-      case 0=> "matrix(-1 0 0 1 479.4365 455.2002)"
+      case 0 => "matrix(-1 0 0 1 479.4365 455.2002)"
       case 1 => "matrix(-1 0 0 1 295.5098 455.2002)"
       case 2 => "matrix(-0.6428 -0.766 -0.766 0.6428 154.6411 400.0889)"
       case 3 => "matrix(0.6428 -0.766 -0.766 -0.6428 147.5444 161.3789)"
@@ -137,7 +146,6 @@ object Svg {
       case 6 => "matrix(1 0 0 -1 639.2549 97.1089)"
       case 7 => "matrix(0.6428 0.766 0.766 -0.6428 808.584 156.1387)"
       case 8 => "matrix(-0.6428 0.766 0.766 0.6428 818.9863 394.8486)"
-      case 9 => "matrix(-1 0 0 1 656.5342 455.2002)"
     }
 
     svg.g(
@@ -198,8 +206,19 @@ object Svg {
   }
 
   def ChipPair(position: Int): SvgElement = {
-    val transformTop = "matrix(1 0 0 -1 302 378)" //todo from position
-    val transformBot = "matrix(1 0 0 -1 284 368)" //todo from position
+    val (x,y) = position match {
+      case 0 => (420, 400)
+      case 1 => (220, 400)
+      case 2 => (120, 350)
+      case 3 => (130, 180)
+      case 4 => (200, 150)
+      case 5 => (410, 150)
+      case 6 => (560, 150)
+      case 7 => (700, 180)
+      case 8 => (700, 350)
+    }
+    val transformTop = s"matrix(1 0 0 -1 ${x+18} ${y+10})" //todo from position
+    val transformBot = s"matrix(1 0 0 -1 $x $y)" //todo from position
     svg.g(
       svg.idAttr := s"PairChipPos$position",
       svg.use(
@@ -230,8 +249,8 @@ object Svg {
         svg.y := s"${y + 0.5}",
         svg.rx := "2.5",
         svg.ry := "2.5",
-        svg.width := s"${w}",
-        svg.height := s"${h}",
+        svg.width := s"$w",
+        svg.height := s"$h",
         svg.style := "fill:#FFF;stroke-width:1;stroke:#000"
       ),
       svg.rect(
@@ -273,24 +292,27 @@ object Svg {
     )
   }
 
-  def PlayerInfo(player: PokerPlayer, isShown: Boolean = false): SvgElement = {
+  def PlayerInfo(
+    player: PokerPlayer,
+    isShown: Boolean = false,
+    bet: Token = 0,
+    isDealer: Boolean = false,
+    isHighlighted: Boolean = false
+  ): SvgElement = {
     val (x,y) = player.seat match {
-      case 0 => (20, 100)
-      case 1 => (250, 10)
-      case 2 => (400, 10)
-      case 3 => (550, 10)
-      case 4 => (850, 100)
-      case 5 => (850, 500)
-      case 6 => (550, 700)
-      case 7 => (400, 700)
-      case 8 => (250, 700)
-      case 9 => (20, 700)
-
+      case 0 => (500, 490)
+      case 1 => (220, 490)
+      case 2 => (5, 420)
+      case 3 => (5, 130)
+      case 4 => (220, 10)
+      case 5 => (400, 10)
+      case 6 => (630, 10)
+      case 7 => (850, 130)
+      case 8 => (850, 420)
     }
 
     val playerCards =
       svg.g(player.hand.cards.zipWithIndex.map { case (card, i) => OpenCard(card, x + 130 + i * 50, y) })
-
 
     svg.g(
       svg.rect(
@@ -300,26 +322,34 @@ object Svg {
         svg.ry := "3",
         svg.width := "130",
         svg.height := "60",
-        svg.fill := "#D06224"
+        svg.fill := (if (isHighlighted) "#ff4f12" else "#D06224")
       ),
       PlayerAvatar(x, y+30, 0.005, -0.005),
       svg.text(
         svg.x := s"${x+55}",
-        svg.y := s"${y+20}",
+        svg.y := s"${y+15}",
         svg.fontSize := "15",
         svg.fontWeight := "bold",
         player.name.toString
       ),
       svg.text(
         svg.x := s"${x+55}",
-        svg.y := s"${y+40}",
+        svg.y := s"${y+35}",
         svg.fontSize := "15",
         svg.fontWeight := "bold",
         player.tokens.toString
       ),
-      (if (player.hand.isEmpty) svg.g() else CardsPair(player.seat)),  //cards on table
-      (if (player.hand.nonEmpty && isShown) playerCards else svg.g())
-
+      svg.text(
+        svg.x := s"${x+55}",
+        svg.y := s"${y+55}",
+        svg.fontSize := "15",
+        svg.fontWeight := "bold",
+        bet.toString
+      ),
+      if (player.hasCards) CardsPair(player.seat) else svg.g(),  //cards on table
+      if (player.hasCards && isShown) playerCards else svg.g(),
+      if (bet > 0) ChipPair(player.seat) else svg.g(),
+      if (isDealer) Svg.DealerButton(player.seat) else svg.g()
     )
   }
 

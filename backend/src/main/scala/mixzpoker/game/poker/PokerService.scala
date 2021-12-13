@@ -6,13 +6,13 @@ import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-import java.util.UUID
 
+import java.util.UUID
 import mixzpoker.game.{GameError, GameRecord}
 import mixzpoker.game.GameError._
 import mixzpoker.domain.chat.ChatOutputMessage
-import mixzpoker.domain.game.poker.{PokerEventContext, PokerGame, PokerOutputMessage, PokerSettings}
-import mixzpoker.domain.game.GameId
+import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerGame, PokerOutputMessage, PokerSettings}
+import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.lobby.Lobby
 
 
@@ -46,7 +46,7 @@ object PokerService {
           .drain
 
     def processEvent(e: PokerEventContext): F[Unit] = for {
-      pm  <- pokerManagers.get.map(_.get(e.gameId).toRight[GameError](NoSuchGame)).flatMap(_.liftTo[F])
+      pm  <- pokerManagers.get.flatMap(_.get(e.gameId).toRight[GameError](NoSuchGame).liftTo[F])
       res <- pm.processEvent(e)
       _   <- pm.topic.publish1(res)
     } yield ()
@@ -57,17 +57,17 @@ object PokerService {
       .flatMap(_.liftTo[F])
       .flatMap(_.getGame)
 
-
     override def createGame(lobby: Lobby): F[GameId] = for {
-      _      <- info"Create GameRecord!"
-      uuid   <- { UUID.randomUUID() }.pure[F]
-      gameId =  GameId.fromUUID(uuid)
+      gameId <- { UUID.randomUUID() }.pure[F].map(GameId.fromUUID)
       gm     <- lobby.gameSettings match {
-        case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, _queue)
-        case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
-      }
+                  case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, _queue)
+                  case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
+                }
       _      <- pokerManagers.update { _.updated(gameId, gm) }
       _      <- gameRecords.update { _.updated(gameId, GameRecord(gameId, lobby.name)) }
+      eid    <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+      _      <- queue.enqueue1(PokerEventContext(eid, gameId, None, PokerEvent.RoundStarts))
+      _      <- info"Created Poker Game(id=${gameId.toString})!"
     } yield gameId
 
     override def ensureExists(gameId: GameId): F[Unit] =

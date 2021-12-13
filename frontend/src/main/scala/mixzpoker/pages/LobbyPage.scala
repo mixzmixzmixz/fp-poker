@@ -14,7 +14,7 @@ import laminar.webcomponents.material.{Button, Icon, List => MList}
 import mixzpoker.components.Chat
 import mixzpoker.components.Dialogs._
 import mixzpoker.domain.game.GameSettings
-import mixzpoker.{AppContext, AppError, Config, Page}
+import mixzpoker.{App, AppContext, AppError, Config, Page}
 import mixzpoker.domain.lobby.LobbyDto.LobbyDto
 import mixzpoker.domain.lobby.{LobbyInputMessage, LobbyOutputMessage}
 import mixzpoker.domain.lobby.LobbyOutputMessage._
@@ -130,7 +130,11 @@ object LobbyPage {
             SettingsDialog(isSettingsDialogOpen, lobby.gameSettings)
           },
           child <-- lobbyVar.signal.map { lobby =>
-            JoinLobbyDialog(isJoinLobbyDialogOpen, lobby, ws)
+            JoinDialog(
+              isJoinLobbyDialogOpen,
+              s"Join Lobby ${lobby.name}", lobby.gameSettings.buyInMin,
+              (buyIn: Int) => ws.sendOne(LobbyInputMessage.Join(buyIn))
+            )
           },
           div(
             cls("lobby-heading-btns"),
@@ -170,7 +174,14 @@ object LobbyPage {
       )
     }
 
-    val $lobby = $lobbyPage.flatMap(l => getLobbyRequest(l.name)).map(_.fold(ExceptionPage.apply, renderLobby))
+    val $lobby = $lobbyPage.flatMap(l => getLobbyRequest(l.name)).map(
+      _.fold(ExceptionPage.apply, l => l.gameId match {
+        case Some(gameId) =>
+          App.router.pushState(Page.PokerGame(gameId))
+          div()
+        case None => renderLobby(l)
+      })
+    )
 
     div(child <-- $lobby, width("100%"))
   }
@@ -203,7 +214,7 @@ object LobbyPage {
               _.`twoline` := true,
               _.`hasMeta` := true,
               _.slots.graphic(Icon().amend(span("person"))),
-              _.slots.default(span(player.user.name)),
+              _.slots.default(span(player.user.name.toString)),
               _.slots.secondary(span(s"${player.buyIn}  - ${if (player.ready) "ready" else "not ready"}")),
             )
           }: _*

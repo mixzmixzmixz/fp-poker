@@ -40,36 +40,22 @@ object Rank {
   implicit def orderingByRank[A <: Rank]: Ordering[A] =
     Ordering.by(r => toInt(r))
 
-  implicit val rankEncoder: Encoder[Rank] = Encoder[String].contramap {
-    case Ace => "ace"
-    case King => "king"
-    case Queen => "queen"
-    case Jack => "jack"
-    case Ten => "ten"
-    case Nine => "nine"
-    case Eight => "eight"
-    case Seven => "seven"
-    case Six => "six"
-    case Five => "five"
-    case Four => "four"
-    case Three => "three"
-    case Two => "two"
-  }
+  implicit val rankEncoder: Encoder[Rank] = Encoder[String].contramap { _.show }
 
   implicit val rankDecoder: Decoder[Rank] = Decoder[String].emap {
-    case "Ace" => Right(Ace)
-    case "King" => Right(King)
-    case "Queen" => Right(Queen)
-    case "Jack" => Right(Jack)
-    case "Ten" => Right(Ten)
-    case "Nine" => Right(Nine)
-    case "Eight" => Right(Eight)
-    case "Seven" => Right(Seven)
-    case "Six" => Right(Six)
-    case "Five" => Right(Five)
-    case "Four" => Right(Four)
-    case "Three" => Right(Three)
-    case "Two" => Right(Two)
+    case "A" => Right(Ace)
+    case "K" => Right(King)
+    case "Q" => Right(Queen)
+    case "J" => Right(Jack)
+    case "10" => Right(Ten)
+    case "9" => Right(Nine)
+    case "8" => Right(Eight)
+    case "7" => Right(Seven)
+    case "6" => Right(Six)
+    case "5" => Right(Five)
+    case "4" => Right(Four)
+    case "3" => Right(Three)
+    case "2" => Right(Two)
     case _ => Left("wrong rank")
 
   }

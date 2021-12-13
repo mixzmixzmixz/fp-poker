@@ -1,15 +1,12 @@
 package mixzpoker.components
 
 import com.raquo.laminar.api.L._
-import io.laminext.websocket.WebSocket
 import laminar.webcomponents.material.{Button, Dialog, Textfield}
 
 import mixzpoker.AppError
 import mixzpoker.AppError.GeneralError
 import mixzpoker.domain.game.GameSettings
 import mixzpoker.domain.game.poker.PokerSettings
-import mixzpoker.domain.lobby.LobbyDto.LobbyDto
-import mixzpoker.domain.lobby.{LobbyInputMessage, LobbyOutputMessage}
 
 
 object Dialogs {
@@ -27,20 +24,18 @@ object Dialogs {
     )
   }
 
-  def JoinLobbyDialog(
-    isOpen: Var[Boolean], lobby: LobbyDto, ws: WebSocket[LobbyOutputMessage, LobbyInputMessage]
-  ): HtmlElement = {
-    val fieldBuyIn = Var(lobby.gameSettings.buyInMin.toString)
+  def JoinDialog(isOpen: Var[Boolean], heading: String, minBuyIn: Int, onJoin: Int => Unit): HtmlElement = {
+    val fieldBuyIn = Var[String](minBuyIn.toString)
 
     Dialog(
-      _.`heading` := s"Join Lobby ${lobby.name}",
+      _.`heading` := heading,
       _.`open` <-- isOpen,
       _.onClosed --> { _ => isOpen.set(false) },
       _.slots.primaryAction(Button(
         _.`label` := "Join",
         _.`disabled` <-- fieldBuyIn.signal.map(_.toIntOption.fold(true)(_ => false)),
         _ => onClick --> { _ =>
-          ws.sendOne(LobbyInputMessage.Join(fieldBuyIn.now().toInt))
+          onJoin(fieldBuyIn.now().toInt)
           isOpen.set(false)
         }
       )),

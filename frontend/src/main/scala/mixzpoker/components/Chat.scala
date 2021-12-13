@@ -16,8 +16,9 @@ import org.scalajs.dom
 
 object Chat {
 
-  case class ChatState(messages: List[(UserDto, String)] = List.empty) {
-    def addMessage(user: UserDto, message: String): ChatState = copy(messages = (user, message) :: messages)
+  case class ChatState(messages: List[(Option[UserDto], String)] = List.empty) {
+    def addMessage(user: UserDto, message: String): ChatState = copy(messages = (Some(user), message) :: messages)
+    def addLogMessage(message: String): ChatState = copy(messages = (None, message) :: messages)
   }
 
   def create(
@@ -51,7 +52,10 @@ object Chat {
       Textarea(
         _ => cls("chat-messages"),
         _.`value` <-- chatState.signal.map(
-          _.messages.map { case (user, msg) => s"${user.name}: $msg"}.reverse.mkString("\n")
+          _.messages.map {
+            case (Some(user), msg) => s"${user.name}: $msg"
+            case (None, msg)       => s"Log: $msg"
+          }.reverse.mkString("\n")
         ),
         _.`disabled` := true,
         _.`rows` := 8, _.`cols` := 130

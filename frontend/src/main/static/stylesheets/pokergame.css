@@ -24,12 +24,27 @@
     position: relative;
     flex-direction: row;
     flex: 0 1 auto;
-    justify-content: space-around;
-
+    justify-content: space-between;
     border-bottom-width: 1px;
     border-bottom-style: solid;
     border-bottom-color: rgba(0, 0, 0, 0.12);
 
+    align-items: center;
+}
+
+.poker-game-heading {
+    display: flex;
+    color: #D06224;
+}
+
+.poker-game-controls {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+}
+
+.poker-game-heading-btn {
+    display: flex;
 }
 
 .poker-game-mid {

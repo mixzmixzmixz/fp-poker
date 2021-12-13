@@ -4,7 +4,7 @@ import io.circe.{Decoder, Encoder}
 
 import scala.util.Random
 
-
+//todo random as effect
 trait Deck {
   def getRandomCard: Option[(Card, Deck)]
 

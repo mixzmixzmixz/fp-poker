@@ -5,15 +5,17 @@ import io.laminext.websocket.WebSocket
 import io.circe.syntax._
 import io.circe.parser.decode
 import org.scalajs.dom
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import laminar.webcomponents.material.{Button, Slider, Textfield}
+import mixzpoker.components.Dialogs.JoinDialog
 import mixzpoker.{AppContext, AppError, Config, Page}
-import mixzpoker.components.{Navigation, Svg, Chat}
+import mixzpoker.components.{Chat, Navigation, Svg}
 import mixzpoker.domain.game.GameId
 import mixzpoker.domain.game.core.{Card, Rank, Suit}
 import mixzpoker.domain.game.poker.{PokerEvent, PokerGame, PokerOutputMessage, PokerPlayer}
 import mixzpoker.domain.game.poker.PokerOutputMessage._
+import mixzpoker.domain.game.poker.PokerEvent._
 
 
 object PokerGamePage {
@@ -34,24 +36,30 @@ object PokerGamePage {
 
   def apply($gamePage: Signal[Page.PokerGame])(implicit appContext: Var[AppContext]): HtmlElement = {
     def renderGamePage(gameId: String): HtmlElement = {
-
-      //STATE
-
       val ws        = createWS(gameId)
       val gameState = Var[PokerGame](PokerGame.empty(GameId.fromString(gameId).toOption.get)) //todo deal with gameID
       val $me       = gameState.signal.combineWith(appContext.signal).map { case (g, ac) => g.players.get(ac.user.id) }
-
       val (chatState, chatArea) = Chat.create(
         s"${Config.wsRootEndpoint}/poker/$gameId/chat/ws",
         "poker-chat-area"
       )
+
       def processServerMessages(message: PokerOutputMessage): Unit = {
-        dom.console.log(s"receive a message from server: ${message.toString}")
         message match {
-          case ErrorMessage(message) => appContext.now().error.set(AppError.GeneralError(message))
-          case GameState(game)       =>
+          case ErrorMessage(message) =>
+            appContext.now().error.set(AppError.GeneralError(message))
+
+          case GameState(game) =>
             dom.console.log(game.asJson.spaces2)
             gameState.set(game)
+          case PlayerToAction(id, secondsForAction) => gameState.now().players.get(id).fold {
+            chatState.update(_.addLogMessage(s"Error! No player with id $id"))
+          } { p =>
+            chatState.update(_.addLogMessage(s"It's time for ${p.name} to act!"))
+          }
+
+          case RoundStart(num) =>
+            chatState.update(_.addLogMessage("Next round has started!"))
         }
       }
 
@@ -61,7 +69,7 @@ object PokerGamePage {
       def PlayerSelfInfo(me: PokerPlayer): HtmlElement = {
         div(
           cls("poker-game-player-self"),
-          div(cls("poker-game-player-name"), child.text <-- appContext.signal.map(_.user.name)),
+          div(cls("poker-game-player-name"), child.text <-- appContext.signal.map(_.user.name.toString)),
           div(cls("poker-game-player-balance"), s"${me.tokens} tokens"),
           div(cls("poker-game-player-state"), s"${me.state.toString}")
         )
@@ -77,16 +85,47 @@ object PokerGamePage {
       def PlayerSelfActions(me: PokerPlayer): HtmlElement = {
         val betAmount = Var(Math.min(gameState.now().pot.minBet, me.tokens))
 
-        val allInBtn = Button(_.`label` := "AllIn", _.`raised` := true)
-        val raiseBtn = Button(_.`label` := "Raise", _.`raised` := true)
+        val allInBtn = Button(
+          _.`label` := "AllIn",
+          _.`raised` := true,
+          _.`disabled` <-- gameState.signal.map(!_.canPlayerAllIn(me)),
+          _ => onClick --> { _ => ws.sendOne(AllIn) }
+        )
+
+        val raiseBtn = Button(
+          _.`label` := "Raise",
+          _.`raised` := true,
+          _.`disabled` <-- gameState.signal.combineWith(betAmount.signal).map { case (gs, bet) =>
+            !gs.canPlayerRaise(me, bet)
+          },
+          _ => onClick --> { _ =>
+            ws.sendOne(Raise(betAmount.now()))
+            betAmount.set(Math.min(gameState.now().pot.minBet, me.tokens))
+          }
+        )
 
         div(
           cls("poker-game-player-actions"),
           div(
             cls("top-row"),
-            Button(_.`label` := "Fold", _.`raised` := true),
-            Button(_.`label` := "Call", _.`raised` := true),
-            Button(_.`label` := "Check", _.`raised` := true),
+            Button(
+              _.`label` := "Fold",
+              _.`raised` := true,
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerFold(me)),
+              _ => onClick --> { _ => ws.sendOne(Fold) }
+            ),
+            Button(
+              _.`label` := "Call",
+              _.`raised` := true,
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerCall(me)),
+              _ => onClick --> { _ => ws.sendOne(Call(gameState.now().toCallPlayer(me))) }
+            ),
+            Button(
+              _.`label` := "Check",
+              _.`raised` := true,
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerCheck(me)),
+              _ => onClick --> { _ => ws.sendOne(Check) }
+            ),
           ),
           div(
             cls("bot-row"),
@@ -125,20 +164,18 @@ object PokerGamePage {
             Svg.CardSymbol(),
             Svg.ChipSymbol(),
             Svg.Table(),
-            Svg.DealerButton(1),
-            Svg.ChipSingle(1),
-            Svg.ChipPair(1),
             Svg.Board(board),
-            game.players.values.map(p => Svg.PlayerInfo(p, isShown = p.userId == appContext.now().user.id)).toList
+            game.players.values.map(p =>
+              Svg.PlayerInfo(
+                p,
+                isShown = p.userId == appContext.now().user.id,
+                bet = game.pot.playerBetsThisRound.getOrElse(p.userId, 0),
+                isDealer = p.seat == game.dealerSeat,
+                isHighlighted = p.seat == game.playerToActSeat
+              )
+            ).toList
 
           )
-        )
-      }
-
-      def PokerMidArea(game: PokerGame): HtmlElement = {
-        div(
-          cls("poker-game-mid"),
-          PokerGamePlayArea(game),
         )
       }
 
@@ -153,6 +190,42 @@ object PokerGamePage {
         case None => div()
       }
 
+      def PokerTopArea(): HtmlElement = {
+        val isJoinDialogOpen = Var(false)
+
+        val joinBtn = Button(
+          _.`raised` := true,
+          _.`label` := "join",
+          _ => cls("poker-game-heading-btn"),
+          _ => onClick --> { _ => isJoinDialogOpen.set(true) }
+        )
+
+        val leaveBtn = Button(
+          _.`raised` := true,
+          _.`label` := "leave",
+          _ => cls("poker-game-heading-btn"),
+          _ => onClick --> { _ => ws.sendOne(Leave) }
+        )
+
+        div(
+          cls("poker-game-top"),
+          h1(cls("poker-game-heading"), s"$gameId"),
+          div(
+            cls("poker-game-controls"),
+            child <-- $me.map {
+              case Some(me) => leaveBtn
+              case None     => joinBtn
+            }
+          ),
+          child <-- gameState.signal.map { gs =>
+            JoinDialog(
+              isJoinDialogOpen,
+              "JoinGame", gs.settings.buyInMin,
+              (buyIn: Int) => ws.sendOne(Join(buyIn, appContext.now().user.name))
+            )
+          }
+        )
+      }
 
       div(
         cls("poker-game-container"),
@@ -162,10 +235,10 @@ object PokerGamePage {
           _ws.send(appContext.now().token)
           ws.sendOne(PokerEvent.Ping)
         },
-        ws.received --> { message => processServerMessages(message)},
+        ws.received --> { message => processServerMessages(message) },
         div(
           cls("poker-game-main"),
-          div(cls("poker-game-top"), "PokerGameTop!"),
+          PokerTopArea(),
           child <-- gameState.signal.map(PokerGamePlayArea),
           PokerBotArea(),
         ),

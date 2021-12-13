@@ -12,7 +12,7 @@ object Users {
     val button = Button(
       _.`raised` := true,
       _.slots.icon(Icon().amend(textToNode("account_circle"))),
-      _.`label` <-- appContext.signal.map(_.user.name),
+      _.`label` <-- appContext.signal.map(_.user.name.toString),
       _.styles.buttonOutlineColor := "#6200ed",
       _ => onClick --> menuOpened.toggleObserver,
       _ => width := "200px"
@@ -34,7 +34,7 @@ object Users {
             _.slots.graphic(Icon().amend(textToNode("account_circle"))),
             _.slots.default(
               span(
-                child.text <-- appContext.signal.map(_.user.name),
+                child.text <-- appContext.signal.map(_.user.name.toString),
                 cls("menu-txt")
               )
             ),

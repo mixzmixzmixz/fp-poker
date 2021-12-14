@@ -11,7 +11,7 @@ import java.util.UUID
 import mixzpoker.game.{GameError, GameRecord}
 import mixzpoker.game.GameError._
 import mixzpoker.domain.chat.ChatOutputMessage
-import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerGame, PokerOutputMessage, PokerSettings}
+import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerGame, PokerGameState, PokerOutputMessage, PokerSettings}
 import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.lobby.Lobby
 
@@ -66,7 +66,7 @@ object PokerService {
       _      <- pokerManagers.update { _.updated(gameId, gm) }
       _      <- gameRecords.update { _.updated(gameId, GameRecord(gameId, lobby.name)) }
       eid    <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
-      _      <- queue.enqueue1(PokerEventContext(eid, gameId, None, PokerEvent.RoundStarts))
+      _      <- queue.enqueue1(PokerEventContext(eid, gameId, None, PokerEvent.NextState(PokerGameState.RoundStart)))
       _      <- info"Created Poker Game(id=${gameId.toString})!"
     } yield gameId
 

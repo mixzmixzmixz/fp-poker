@@ -2,6 +2,7 @@ package mixzpoker.game.poker
 
 import cats.implicits._
 import cats.effect.Sync
+import cats.effect.concurrent.Ref
 import fs2.{Pull, Stream}
 import fs2.concurrent.{Queue, Topic}
 import org.http4s.{AuthedRoutes, HttpRoutes, Response}
@@ -49,7 +50,7 @@ class PokerApi[F[_]: Sync: Logging](
   }
 
   private def pokerWS(gameId: GameId): F[Response[F]] = {
-    def processInput(queue: Queue[F, PokerEventContext], topic: Topic[F, PokerOutputMessage])
+    def processInput(queue: Queue[F, PokerEventContext], userRef: Ref[F, Option[User]])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
       def processStreamInput(stream: Stream[F, String], user: User): Stream[F, PokerEventContext] =
@@ -66,28 +67,30 @@ class PokerApi[F[_]: Sync: Logging](
           )
         }
 
-      val parsedWebSocketInput: Stream[F, PokerEventContext] = wsfStream.collect {
+      wsfStream.collect {
         case Text(text, _) => text.trim
-        case Close(_)      => "disconnected"
+//        case Close(_)      => "disconnected" //todo process disconnects
       }.pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, PokerEventContext, Unit]
-        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
-          err =>
-            topic.publish1(PokerOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}"))
-              *> (Pull.done: Pull[F, PokerEventContext, Unit]).pure[F],
-          user =>
-            (processStreamInput(stream, user).pull.echo: Pull[F, PokerEventContext, Unit]).pure[F]
-        )}).flatten
-      }.stream
-
-      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(queue.enqueue)
+        case Some((token, stream)) =>
+          Pull
+            .eval(getAuthUser(token)
+            .flatMap(eu => userRef.update(_ => eu.toOption) *> eu.pure[F])
+            .map { _.fold(_ => Pull.done, user => processStreamInput(stream, user).pull.echo)
+            }).flatten
+      }.stream.through(queue.enqueue)
     }
 
     for {
       _         <- pokerService.ensureExists(gameId)
       topic     <- pokerService.getTopic(gameId)
-      toClient  =  topic.subscribe(1000).map(msg => Text(msg.asJson.noSpaces))
-      ws        <- WebSocketBuilder[F].build(toClient, processInput(pokerService.queue, topic))
+      userRef   <- Ref.of[F, Option[User]](None)
+      toClient  =  topic
+        .subscribe(1000).evalFilter {
+          case PokerOutputMessage.ErrorMessage(Some(id), _) => userRef.get.map(_.fold(false)(u => u.id == id))
+          case _  => true.pure[F]
+        }.map(msg => Text(msg.asJson.noSpaces))
+      ws        <- WebSocketBuilder[F].build(toClient, processInput(pokerService.queue, userRef))
     } yield ws
   }.recoverWith {
     case GameError.NoSuchGame => NotFound()
@@ -109,22 +112,16 @@ class PokerApi[F[_]: Sync: Logging](
           case ChatInputMessage.ChatMessage(message) => ChatOutputMessage.ChatMessageFrom(message, user.dto)
         }
 
-      //todo simplify. all the messages go through the pipe
-      val parsedWebSocketInput: Stream[F, ChatOutputMessage] = wsfStream.collect {
+      wsfStream.collect {
         case Text(text, _) => text.trim
-        case Close(_)      => "disconnected"
+//        case Close(_)      => "disconnected"
       }.pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, ChatOutputMessage, Unit]
-        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
-          err =>
-            topic.publish1(ChatOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}"))
-              *> (Pull.done: Pull[F, ChatOutputMessage, Unit]).pure[F],
-          user =>
-            (processStreamInput(stream, user).pull.echo: Pull[F, ChatOutputMessage, Unit]).pure[F]
-        )}).flatten
-      }.stream
-
-      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(topic.publish)
+        case Some((token, stream)) => Pull.eval(getAuthUser(token).map {_.fold(
+                                        err => Pull.done,
+                                        user => processStreamInput(stream, user).pull.echo
+                                      )}).flatten
+      }.stream.through(topic.publish)
     }
 
     for {

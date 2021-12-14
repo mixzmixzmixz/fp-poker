@@ -7,13 +7,35 @@ import mixzpoker.domain.Token
 import mixzpoker.domain.user.UserId
 
 
+//todo rename round
 case class Pot(
   minBet: Token, // min bet allowed (e.g. big blind)
-  maxBet: Token, // max bet allowed (e.g. pot limit in limit-holdem)
+  maxBet: Token, // max bet allowed (e.g. pot limit in limit-holdem) // todo use maxBet in some versions of the game
   betToCall: Token, // last bet made needed to be called by others
-  playerBetsThisRound: Map[UserId, Token], // Bets made by players during this round
+  playerBetsThisRound: Map[UserId, Token], // Bets made by players during this round (rounds are preflop, flop, etc)
   playerBets: Map[UserId, Token], // all bets made by players
-)
+) {
+  def makeBet(userId: UserId, bet: Token): Pot = {
+    val pBet = playerBetsThisRound.getOrElse(userId, 0) + bet
+    val pBets = playerBets.getOrElse(userId, 0) + pBet
+    copy(
+      playerBetsThisRound = playerBetsThisRound.updated(userId, pBet),
+//      playerBets = playerBets.updated(userId, pBets),  //todo update overall bets in the end of each round
+      betToCall = if (pBet > betToCall) pBet else betToCall
+    )
+  }
+
+  def nextState(minBet: Token): Pot = {
+    copy(
+      playerBets = playerBets.toList.map { case (id, tokens) =>
+        (id, tokens + playerBetsThisRound.getOrElse(id, 0))
+      }.toMap,
+      playerBetsThisRound = playerBetsThisRound.view.mapValues(_ => 0).toMap,
+      betToCall = 0,
+      minBet = minBet
+    )
+  }
+}
 
 object Pot {
   def empty(minBet: Token = 0, maxBet: Token = 0): Pot =

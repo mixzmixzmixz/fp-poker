@@ -12,21 +12,12 @@ import mixzpoker.components.Dialogs.JoinDialog
 import mixzpoker.{AppContext, AppError, Config, Page}
 import mixzpoker.components.{Chat, Navigation, Svg}
 import mixzpoker.domain.game.GameId
-import mixzpoker.domain.game.core.{Card, Rank, Suit}
 import mixzpoker.domain.game.poker.{PokerEvent, PokerGame, PokerOutputMessage, PokerPlayer}
 import mixzpoker.domain.game.poker.PokerOutputMessage._
 import mixzpoker.domain.game.poker.PokerEvent._
 
 
 object PokerGamePage {
-  val board: List[Card] = List(
-    Card(Rank.Ten, Suit.Clubs),
-    Card(Rank.Ace, Suit.Hearts),
-    Card(Rank.King, Suit.Diamonds),
-    Card(Rank.Queen, Suit.Spades),
-    Card(Rank.Two, Suit.Clubs),
-  )
-
 
   def createWS(name: String): WebSocket[PokerOutputMessage, PokerEvent] = WebSocket
     .url(s"${Config.wsRootEndpoint}/poker/$name/ws")
@@ -46,20 +37,21 @@ object PokerGamePage {
 
       def processServerMessages(message: PokerOutputMessage): Unit = {
         message match {
-          case ErrorMessage(message) =>
+          case ErrorMessage(_, message) =>
             appContext.now().error.set(AppError.GeneralError(message))
 
           case GameState(game) =>
             dom.console.log(game.asJson.spaces2)
             gameState.set(game)
+
           case PlayerToAction(id, secondsForAction) => gameState.now().players.get(id).fold {
             chatState.update(_.addLogMessage(s"Error! No player with id $id"))
           } { p =>
             chatState.update(_.addLogMessage(s"It's time for ${p.name} to act!"))
           }
 
-          case RoundStart(num) =>
-            chatState.update(_.addLogMessage("Next round has started!"))
+          case LogMessage(message) =>
+            chatState.update(_.addLogMessage(message))
         }
       }
 
@@ -118,7 +110,7 @@ object PokerGamePage {
               _.`label` := "Call",
               _.`raised` := true,
               _.`disabled` <-- gameState.signal.map(!_.canPlayerCall(me)),
-              _ => onClick --> { _ => ws.sendOne(Call(gameState.now().toCallPlayer(me))) }
+              _ => onClick --> { _ => ws.sendOne(Call) }
             ),
             Button(
               _.`label` := "Check",
@@ -164,7 +156,7 @@ object PokerGamePage {
             Svg.CardSymbol(),
             Svg.ChipSymbol(),
             Svg.Table(),
-            Svg.Board(board),
+            Svg.Board(game.board),
             game.players.values.map(p =>
               Svg.PlayerInfo(
                 p,

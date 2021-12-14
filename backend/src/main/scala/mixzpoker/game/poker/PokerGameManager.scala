@@ -6,18 +6,19 @@ import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import mixzpoker.AppError
 import mixzpoker.domain.Token
 import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
+import mixzpoker.domain.game.poker.PokerGameState._
 import mixzpoker.domain.game.poker.PokerOutputMessage._
-import mixzpoker.domain.game.GameId
-import mixzpoker.domain.game.core.Hand
+import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.domain.user.{UserId, UserName}
 import mixzpoker.game.poker.PokerError._
 import mixzpoker.lobby.Player
+
+import java.util.UUID
 
 
 // controls getGame's flow, player's timeouts and so
@@ -55,16 +56,28 @@ object PokerGameManager {
           game <- gameRef.get
           game <- (ec.event, ec.userId) match {
                     case (event: PokerGameEvent, None)        => processGameEvent(game, event)
-                    case (event: PokerPlayerEvent, Some(uid)) => processPlayerEvent(game, event, uid)
+                    case (event: PokerPlayerEvent, Some(uid)) => for {
+                      game <- processPlayerEvent(game, event, uid)
+                      eid  <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+                      _    <- if (game.isRoundFinished)
+                                queue.enqueue1(PokerEventContext(eid, ec.gameId, None, NextState(game.nextState)))
+                              else
+                                game.playerBySeat(game.playerToActSeat)
+                                  .toRight(NoSuchPlayer)
+                                  .liftTo[F]
+                                  .flatMap { p =>
+                                    _topic.publish1(PlayerToAction(p.userId, secondsForAction))
+                                  }
+                    } yield game
                   }
           _    <- gameRef.update(_ => game)
         } yield PokerOutputMessage.GameState(game = game): PokerOutputMessage
       }.recover {
-        case err: AppError => PokerOutputMessage.ErrorMessage(err.toString): PokerOutputMessage
+        case err: AppError => PokerOutputMessage.ErrorMessage(ec.userId, err.toString): PokerOutputMessage
       }.handleErrorWith(err =>
         error"got some err: ${err.getMessage}" *>
         error"stacktrace: ${err.getStackTrace.mkString("\n")}" *>
-          (PokerOutputMessage.ErrorMessage(err.toString): PokerOutputMessage).pure[F]
+          (PokerOutputMessage.ErrorMessage(ec.userId, err.toString): PokerOutputMessage).pure[F]
       )
 
       def processPlayerEvent(game: PokerGame, event: PokerPlayerEvent, userId: UserId): F[PokerGame] = {
@@ -74,7 +87,7 @@ object PokerGameManager {
           case Leave             => playerLeave(game, userId)
           case Fold              => playerFold(game, userId)
           case Check             => playerCheck(game, userId)
-          case Call(amount)      => playerCall(game, userId, amount)
+          case Call              => playerCall(game, userId)
           case Raise(amount)     => playerRaise(game, userId, amount)
           case AllIn             => playerAllIn(game, userId)
         }
@@ -82,34 +95,41 @@ object PokerGameManager {
 
       def processGameEvent(game: PokerGame, event: PokerGameEvent): F[PokerGame] = {
         event match {
-          case RoundStarts =>
+          case NextState(PokerGameState.RoundStart) =>
             for {
               g <- roundStarts(game).liftTo[F]
-              _ <- _topic.publish1(RoundStart(1))
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("New round has begun"))
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
             } yield g
-          case PreFlop     => ???
-          case Flop        => ???
-          case Turn        => ???
-          case River       => ???
+          case NextState(RoundEnd)    =>
+            for {
+              g <- roundEnds(game).liftTo[F]
+              eid  <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+              _ <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
+            } yield g
+          case NextState(Flop)        =>
+            val g = game.flop()
+            for {
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Flop State"))
+              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
+              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
+            } yield g
+          case NextState(Turn)        =>
+            val g = game.turn()
+            for {
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Turn State"))
+              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
+              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
+            } yield g
+          case NextState(River)       =>
+            val g = game.river()
+            for {
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("River State"))
+              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
+              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
+            } yield g
         }
-      }
-
-      def ensurePlayerCalledEnough(pot: Pot, player: PokerPlayer, amount: Token): Either[PokerError, Unit] = {
-        val toCall = pot.betToCall - pot.playerBetsThisRound.getOrElse(player.userId, 0)
-        if (amount < toCall)
-          Left(NotEnoughTokensToCall: PokerError)
-        else if (amount > toCall)
-          Left(MoreTokensThanNeededToCall: PokerError)
-        else
-          Right(())
-      }
-
-      def ensurePlayerRaisedEnough(pot: Pot, player: PokerPlayer, amount: Token): Either[PokerError, Unit] = {
-        val toCall = pot.betToCall - pot.playerBetsThisRound.getOrElse(player.userId, 0)
-        val minRaise = pot.minBet + toCall
-        Either.cond(amount >= minRaise, (), NotEnoughTokensToRaise: PokerError)
       }
 
       def decreaseBalance(player: PokerPlayer, delta: Token): Either[PokerError, PokerPlayer] =
@@ -117,9 +137,6 @@ object PokerGameManager {
 
       def increaseBalance(player: PokerPlayer, delta: Token): Either[PokerError, PokerPlayer] =
         Right(player.copy(tokens = player.tokens + delta))
-
-      def ensureBalanceEquals(player: PokerPlayer, amount: Token): Either[PokerError, Unit] =
-        Either.cond(player.tokens == amount, (), UserBalanceError(s"balance not equal $amount"))
 
       //todo lock user's balance here
       def playerJoin(game: PokerGame, userId: UserId, name: UserName, buyIn: Token): Either[PokerError, PokerGame] = for {
@@ -135,71 +152,42 @@ object PokerGameManager {
         _ <- Either.cond(game.players.contains(userId), (), NoSuchPlayer)
       } yield game.copy(players = game.players - userId)
 
-      def playerToAct(game: PokerGame, userId: UserId): Either[PokerError, PokerPlayer] = for {
-        p <- game.players.get(userId).toRight[PokerError](WrongUserId)
-        _ <- Either.cond(p.seat == game.playerToActSeat, (), NoPlayerOnSeat(game.playerToActSeat))
-      } yield p
-
       def playerFold(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- playerToAct(game, userId)
-      } yield game.updatePlayer(player.copy(hand = Hand.empty, state = PokerPlayerState.Folded))
+        player <- game.players.get(userId).toRight(NoSuchPlayer)
+        _      <- Either.cond(game.canPlayerFold(player), (), SomeError("can not fold"))
+      } yield game.updatePlayer(player.fold()).nextToAct()
 
       def playerCheck(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- playerToAct(game, userId)
-        _      <- Either.cond(
-                    game.pot.betToCall == game.pot.playerBetsThisRound.getOrElse(player.userId, 0),
-                    (),
-                    CanNotCheck
-                  )
-        //todo check logic
-      } yield game
+        player <- game.players.get(userId).toRight(NoSuchPlayer)
+        _      <- Either.cond(game.canPlayerCheck(player), (), CanNotCheck)
+      } yield game.updatePlayer(player.check()).nextToAct()
 
-      def playerCall(game: PokerGame, userId: UserId, amount: Token): Either[PokerError, PokerGame] = for {
-        player <- playerToAct(game, userId)
-        _      <- ensurePlayerCalledEnough(game.pot, player, amount)
+      def playerCall(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
+        player <- game.players.get(userId).toRight(NoSuchPlayer)
+        _      <- Either.cond(game.canPlayerCall(player), (), SomeError("can not call"))
+        amount =  game.toCallPlayer(player)
         player <- decreaseBalance(player, amount)
-        pBet   =  game.pot.playerBetsThisRound.getOrElse(player.userId, 0) + amount
-        pBets  =  game.pot.playerBets.getOrElse(player.userId, 0) + pBet
-        pot    =  game.pot.copy(
-                    playerBetsThisRound = game.pot.playerBetsThisRound.updated(player.userId, pBet),
-                    playerBets = game.pot.playerBets.updated(player.userId, pBets)
-                  )
-      } yield game.updatePlayer(player).copy(pot = pot)
+        pot    =  game.pot.makeBet(userId, amount)
+      } yield game.updatePlayer(player.call()).nextToAct(pot)
 
       def playerRaise(game: PokerGame, userId: UserId, amount: Token): Either[PokerError, PokerGame] = for {
-        player <- playerToAct(game, userId)
-        _      <- ensurePlayerRaisedEnough(game.pot, player, amount)
+        player <- game.players.get(userId).toRight(NoSuchPlayer)
+        _      <- Either.cond(game.canPlayerRaise(player, amount), (), SomeError("can not raise"))
         player <- decreaseBalance(player, amount)
-        pBet   =  game.pot.playerBetsThisRound.getOrElse(player.userId, 0) + amount
-        pBets  =  game.pot.playerBets.getOrElse(player.userId, 0) + pBet
-        pot    =  game.pot.copy(
-                    playerBetsThisRound = game.pot.playerBetsThisRound.updated(player.userId, pBet),
-                    playerBets = game.pot.playerBets.updated(player.userId, pBets),
-                    betToCall = pBet
-                  )
-      } yield game.updatePlayer(player).copy(pot = pot)
+        pot    =  game.pot.makeBet(userId, amount)
+      } yield game.updatePlayer(player.raise()).nextToAct(pot)
 
       def playerAllIn(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- playerToAct(game, userId)
-        _      <- Either.cond(player.tokens > 0, (), UserBalanceError(s"Balance is zero!"))
+        player <- game.players.get(userId).toRight(NoSuchPlayer)
+        _      <- Either.cond(game.canPlayerAllIn(player), (), SomeError("can not all in"))
         player <- decreaseBalance(player, player.tokens)
-        pBet   =  game.pot.playerBetsThisRound.getOrElse(player.userId, 0) + player.tokens
-        pBets  =  game.pot.playerBets.getOrElse(player.userId, 0) + pBet
-        pot    =  game.pot.copy(
-                    playerBetsThisRound = game.pot.playerBetsThisRound.updated(player.userId, pBet),
-                    playerBets = game.pot.playerBets.updated(player.userId, pBets),
-                    betToCall = if (pBet > game.pot.betToCall) pBet else game.pot.betToCall
-                  )
-      } yield game.updatePlayer(player).copy(pot = pot)
+        pot    =  game.pot.makeBet(userId, player.tokens)
+      } yield game.updatePlayer(player.allIn()).nextToAct(pot)
 
       def betBlind(game: PokerGame, player: PokerPlayer, blind: Token): Either[PokerError, PokerGame] = for {
         p   <- decreaseBalance(player, blind)
-        pot =  game.pot.copy(
-                  playerBetsThisRound = game.pot.playerBetsThisRound.updated(p.userId, blind),
-                  playerBets = game.pot.playerBets.updated(p.userId, blind),
-                  betToCall = blind
-                )
-      } yield game.updatePlayer(p).copy(pot = pot, playerToActSeat = game.nthAfter(1, seat = game.playerToActSeat))
+        pot =  game.pot.makeBet(player.userId, blind)
+      } yield game.updatePlayer(p).nextToAct(pot)
 
       def roundStarts(_game: PokerGame): Either[PokerError, PokerGame] = {
         val game = _game.nextRound()
@@ -209,6 +197,19 @@ object PokerGameManager {
           bbPlayer <- game.playerBySeat(game.bigBlindSeat).toRight(NoSuchPlayer)
           game     <- betBlind(game, bbPlayer, Math.min(bbPlayer.tokens, game.settings.bigBlind))
         } yield game
+      }
+
+      def roundEnds(game: PokerGame): Either[PokerError, PokerGame] = {
+
+        //todo more complext logic
+        // calculate wniners
+        // split pots
+        // allins
+        val moneyWon = game.pot.playerBets.values.sum
+        val winner = game.players.values.head
+        for {
+          p <- increaseBalance(winner, moneyWon)
+        } yield game.updatePlayer(p)
       }
 
     }

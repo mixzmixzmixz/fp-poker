@@ -5,6 +5,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.core.Hand
 import mixzpoker.domain.user.{UserId, UserName}
+import mixzpoker.domain.game.poker.PokerPlayerState._
 
 
 case class PokerPlayer(
@@ -16,6 +17,18 @@ case class PokerPlayer(
   state: PokerPlayerState
 ) {
   def hasCards: Boolean = hand.nonEmpty
+
+  def isAllIned: Boolean = state match {
+    case AllIned => true
+    case _       => false
+  }
+
+  def fold(): PokerPlayer = copy(hand = Hand.empty, state = Folded)
+  def check(): PokerPlayer = copy(state = Checked)
+  def call(): PokerPlayer = copy(state = Called)
+  def raise(): PokerPlayer = copy(state = Raised)
+  def allIn(): PokerPlayer = copy(state = AllIned)
+
 }
 
 

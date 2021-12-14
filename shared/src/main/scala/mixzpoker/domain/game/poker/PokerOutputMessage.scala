@@ -8,9 +8,9 @@ import mixzpoker.domain.user.UserId
 sealed trait PokerOutputMessage
 
 object PokerOutputMessage {
-  case class ErrorMessage(message: String) extends PokerOutputMessage
+  case class ErrorMessage(toUser: Option[UserId], message: String) extends PokerOutputMessage
   case class GameState(game: PokerGame) extends PokerOutputMessage
-  case class RoundStart(num: Int) extends PokerOutputMessage
+  case class LogMessage(message: String) extends PokerOutputMessage
   case class PlayerToAction(id: UserId, secondsForAction: Int) extends PokerOutputMessage
 
 
@@ -20,8 +20,8 @@ object PokerOutputMessage {
   implicit val gsDecoder: Decoder[GameState] = deriveDecoder
   implicit val gsEncoder: Encoder[GameState] = deriveEncoder
 
-  implicit val rsDecoder: Decoder[RoundStart] = deriveDecoder
-  implicit val rsEncoder: Encoder[RoundStart] = deriveEncoder
+  implicit val lmDecoder: Decoder[LogMessage] = deriveDecoder
+  implicit val lmEncoder: Encoder[LogMessage] = deriveEncoder
 
   implicit val ptaDecoder: Decoder[PlayerToAction] = deriveDecoder
   implicit val ptaEncoder: Encoder[PlayerToAction] = deriveEncoder
@@ -29,7 +29,7 @@ object PokerOutputMessage {
   implicit val limDecoder: Decoder[PokerOutputMessage] = (c: HCursor) => c.downField("type").as[String].flatMap {
     case "ErrorMessage"   => c.downField("params").as[ErrorMessage]
     case "GameState"      => c.downField("params").as[GameState]
-    case "RoundStart"     => c.downField("params").as[RoundStart]
+    case "LogMessage"     => c.downField("params").as[LogMessage]
     case "PlayerToAction" => c.downField("params").as[PlayerToAction]
     case _                => Left(DecodingFailure("Invalid message type", List()))
   }
@@ -37,7 +37,7 @@ object PokerOutputMessage {
   implicit val limEncoder: Encoder[PokerOutputMessage] = Encoder.instance {
     case a: ErrorMessage   => Json.obj("type" -> "ErrorMessage".asJson, "params" -> a.asJson)
     case a: GameState      => Json.obj("type" -> "GameState".asJson, "params" -> a.asJson)
-    case a: RoundStart     => Json.obj("type" -> "RoundStart".asJson, "params" -> a.asJson)
+    case a: LogMessage     => Json.obj("type" -> "LogMessage".asJson, "params" -> a.asJson)
     case a: PlayerToAction => Json.obj("type" -> "PlayerToAction".asJson, "params" -> a.asJson)
   }
 }

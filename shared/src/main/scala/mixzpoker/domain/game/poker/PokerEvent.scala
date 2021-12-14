@@ -20,25 +20,21 @@ object PokerEvent {
 
   case object Fold extends PokerPlayerEvent
   case object Check extends PokerPlayerEvent
-  case class Call(amount: Token) extends PokerPlayerEvent
+  case object Call extends PokerPlayerEvent
   case class Raise(amount: Token) extends PokerPlayerEvent
   case object AllIn extends PokerPlayerEvent
 
-  case object RoundStarts extends PokerGameEvent
-  case object PreFlop extends PokerGameEvent
-  case object Flop extends PokerGameEvent
-  case object Turn extends PokerGameEvent
-  case object River extends PokerGameEvent
+  case class NextState(state: PokerGameState) extends PokerGameEvent
 
 
   implicit val jDecoder: Decoder[Join] = deriveDecoder
   implicit val jEncoder: Encoder[Join] = deriveEncoder
 
-  implicit val callDecoder: Decoder[Call] = deriveDecoder
-  implicit val callEncoder: Encoder[Call] = deriveEncoder
-
   implicit val raiseDecoder: Decoder[Raise] = deriveDecoder
   implicit val raiseEncoder: Encoder[Raise] = deriveEncoder
+
+  implicit val nextStateDecoder: Decoder[NextState] = deriveDecoder
+  implicit val nextStateEncoder: Encoder[NextState] = deriveEncoder
 
 
   implicit val ppeDecoder: Decoder[PokerPlayerEvent] = (c: HCursor) => c.downField("type").as[String].flatMap {
@@ -48,7 +44,7 @@ object PokerEvent {
     case "Fold"     => Right(Fold)
     case "Check"    => Right(Check)
     case "AllIn"    => Right(AllIn)
-    case "Call"     => c.downField("params").as[Call]
+    case "Call"     => Right(Call)
     case "Raise"    => c.downField("params").as[Raise]
     case _          => Left(DecodingFailure("Invalid message type", List()))
   }
@@ -60,25 +56,17 @@ object PokerEvent {
     case Fold        => Json.obj("type" -> "Fold".asJson)
     case Check       => Json.obj("type" -> "Check".asJson)
     case AllIn       => Json.obj("type" -> "AllIn".asJson)
-    case a: Call     => Json.obj("type" -> "Call".asJson, "params" -> a.asJson)
+    case Call        => Json.obj("type" -> "Call".asJson)
     case a: Raise    => Json.obj("type" -> "Raise".asJson, "params" -> a.asJson)
   }
 
   implicit val pgeDecoder: Decoder[PokerGameEvent] = (c: HCursor) => c.downField("type").as[String].flatMap {
-    case "RoundStarts" => Right(RoundStarts)
-    case "PreFlop"     => Right(PreFlop)
-    case "Flop"        => Right(Flop)
-    case "Turn"        => Right(Turn)
-    case "River"       => Right(River)
-    case _             => Left(DecodingFailure("Invalid message type", List()))
+    case "NextState" => c.downField("params").as[NextState]
+    case _           => Left(DecodingFailure("Invalid message type", List()))
   }
 
   implicit val pgeEncoder: Encoder[PokerGameEvent] = Encoder.instance {
-    case RoundStarts => Json.obj("type" -> "RoundStarts".asJson)
-    case PreFlop     => Json.obj("type" -> "PreFlop".asJson)
-    case Flop        => Json.obj("type" -> "Flop".asJson)
-    case Turn        => Json.obj("type" -> "Turn".asJson)
-    case River       => Json.obj("type" -> "River".asJson)
+    case a: NextState => Json.obj("type" -> "NextState".asJson, "params" -> a.asJson)
   }
 
   implicit val pokerEventEncoder: Encoder[PokerEvent] = Encoder.instance {

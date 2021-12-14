@@ -44,14 +44,19 @@ object PokerGamePage {
             dom.console.log(game.asJson.spaces2)
             gameState.set(game)
 
-          case PlayerToAction(id, secondsForAction) => gameState.now().players.get(id).fold {
-            chatState.update(_.addLogMessage(s"Error! No player with id $id"))
-          } { p =>
-            chatState.update(_.addLogMessage(s"It's time for ${p.name} to act!"))
-          }
+          case PlayerToAction(id, secondsForAction) =>
+            gameState.now().players.get(id).fold {
+              chatState.update(_.addLogMessage(s"Error! No player with id $id"))
+            } { p =>
+              chatState.update(_.addLogMessage(s"It's time for ${p.name} to act!"))
+            }
 
           case LogMessage(message) =>
             chatState.update(_.addLogMessage(message))
+
+          case ShowdownWin(showdown) =>
+
+          case NoShowdownWin(player) =>
         }
       }
 
@@ -69,7 +74,7 @@ object PokerGamePage {
 
       def PlayerSelfCards(me: PokerPlayer): HtmlElement = {
         div(
-          cls("poker-game-player-self-cards"),
+          cls("poker-game-player-self-sfcards"),
           Svg.PlayerCards(me.hand.cards)
         )
       }

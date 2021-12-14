@@ -102,12 +102,41 @@ object PokerGameManager {
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
             } yield g
-          case NextState(RoundEnd)    =>
+
+          case NextState(RoundEnd) =>
+            //todo more complext logic
+            // allins
+            val moneyWon = game.pot.playerBets.values.sum
+
+            val (winners, maybeShowdown) = if (game.activePlayers.size > 1) {
+              val showdown = PokerCombinationSolver.sortHands(game.board, game.activePlayers)
+              (showdown.combs.head.map(_._2), Some(showdown))
+            } else {
+              (List(game.activePlayers.head), None)
+            }
+
+            val moneyPerWinner = moneyWon / winners.size
+            val modulo = moneyWon % winners.size // add to the first player
+            val winnersMoney = winners.zipWithIndex.map { case (p, i) =>
+              if (i == 0) (p, moneyPerWinner)
+              else (p, moneyPerWinner + modulo)
+            }
+            val updatedPlayers = winnersMoney.traverse { case (p, money) => increaseBalance(p, money)}
+
             for {
-              g <- roundEnds(game).liftTo[F]
-              eid  <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
-              _ <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
+              g   <- updatedPlayers.liftTo[F].map(game.updatePlayers)
+              _   <- maybeShowdown match {
+                        case Some(sd) =>
+                          _topic.publish1(LogMessage("Showdown!")) *>
+                          _topic.publish1(ShowdownWin(sd))
+                        case None =>
+                          _topic.publish1(LogMessage("NoShowdown!")) *>
+                          _topic.publish1(NoShowdownWin(winners.head))
+                      }
+              eid <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+              _   <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
             } yield g
+
           case NextState(Flop)        =>
             val g = game.flop()
             for {
@@ -115,6 +144,7 @@ object PokerGameManager {
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
             } yield g
+
           case NextState(Turn)        =>
             val g = game.turn()
             for {
@@ -122,6 +152,7 @@ object PokerGameManager {
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
             } yield g
+
           case NextState(River)       =>
             val g = game.river()
             for {
@@ -198,20 +229,6 @@ object PokerGameManager {
           game     <- betBlind(game, bbPlayer, Math.min(bbPlayer.tokens, game.settings.bigBlind))
         } yield game
       }
-
-      def roundEnds(game: PokerGame): Either[PokerError, PokerGame] = {
-
-        //todo more complext logic
-        // calculate wniners
-        // split pots
-        // allins
-        val moneyWon = game.pot.playerBets.values.sum
-        val winner = game.players.values.head
-        for {
-          p <- increaseBalance(winner, moneyWon)
-        } yield game.updatePlayer(p)
-      }
-
     }
 
 }

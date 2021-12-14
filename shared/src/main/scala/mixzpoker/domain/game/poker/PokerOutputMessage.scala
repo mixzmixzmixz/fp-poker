@@ -11,6 +11,8 @@ object PokerOutputMessage {
   case class ErrorMessage(toUser: Option[UserId], message: String) extends PokerOutputMessage
   case class GameState(game: PokerGame) extends PokerOutputMessage
   case class LogMessage(message: String) extends PokerOutputMessage
+  case class ShowdownWin(showdown: Showdown) extends PokerOutputMessage
+  case class NoShowdownWin(player: PokerPlayer) extends PokerOutputMessage
   case class PlayerToAction(id: UserId, secondsForAction: Int) extends PokerOutputMessage
 
 
@@ -23,6 +25,12 @@ object PokerOutputMessage {
   implicit val lmDecoder: Decoder[LogMessage] = deriveDecoder
   implicit val lmEncoder: Encoder[LogMessage] = deriveEncoder
 
+  implicit val swDecoder: Decoder[ShowdownWin] = deriveDecoder
+  implicit val swEncoder: Encoder[ShowdownWin] = deriveEncoder
+
+  implicit val nswDecoder: Decoder[NoShowdownWin] = deriveDecoder
+  implicit val nswEncoder: Encoder[NoShowdownWin] = deriveEncoder
+
   implicit val ptaDecoder: Decoder[PlayerToAction] = deriveDecoder
   implicit val ptaEncoder: Encoder[PlayerToAction] = deriveEncoder
 
@@ -30,6 +38,8 @@ object PokerOutputMessage {
     case "ErrorMessage"   => c.downField("params").as[ErrorMessage]
     case "GameState"      => c.downField("params").as[GameState]
     case "LogMessage"     => c.downField("params").as[LogMessage]
+    case "ShowdownWin"    => c.downField("params").as[ShowdownWin]
+    case "NoShowdownWin"  => c.downField("params").as[NoShowdownWin]
     case "PlayerToAction" => c.downField("params").as[PlayerToAction]
     case _                => Left(DecodingFailure("Invalid message type", List()))
   }
@@ -38,6 +48,8 @@ object PokerOutputMessage {
     case a: ErrorMessage   => Json.obj("type" -> "ErrorMessage".asJson, "params" -> a.asJson)
     case a: GameState      => Json.obj("type" -> "GameState".asJson, "params" -> a.asJson)
     case a: LogMessage     => Json.obj("type" -> "LogMessage".asJson, "params" -> a.asJson)
+    case a: ShowdownWin    => Json.obj("type" -> "ShowdownWin".asJson, "params" -> a.asJson)
+    case a: NoShowdownWin  => Json.obj("type" -> "NoShowdownWin".asJson, "params" -> a.asJson)
     case a: PlayerToAction => Json.obj("type" -> "PlayerToAction".asJson, "params" -> a.asJson)
   }
 }

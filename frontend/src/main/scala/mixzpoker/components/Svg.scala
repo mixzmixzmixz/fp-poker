@@ -346,7 +346,7 @@ object Svg {
         svg.fontWeight := "bold",
         bet.toString
       ),
-      if (player.hasCards) CardsPair(player.seat) else svg.g(),  //cards on table
+      if (player.hasCards) CardsPair(player.seat) else svg.g(),  //sfcards on table
       if (player.hasCards && isShown) playerCards else svg.g(),
       if (bet > 0) ChipPair(player.seat) else svg.g(),
       if (isDealer) Svg.DealerButton(player.seat) else svg.g()

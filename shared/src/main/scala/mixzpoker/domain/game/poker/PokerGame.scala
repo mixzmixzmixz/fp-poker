@@ -34,6 +34,11 @@ case class PokerGame(
   def updatePlayer(player: PokerPlayer): PokerGame =
     copy(players = (players - player.userId).updated(player.userId, player))
 
+  def updatePlayers(updatedPlayers: List[PokerPlayer]): PokerGame =
+    copy(players = updatedPlayers.foldLeft(players) { case (map, p) =>
+      (map - p.userId).updated(p.userId, p)
+    })
+
   def firstEmptySeat: Option[Int] =
     (0 until settings.maxPlayers).filterNot(seat => players.values.map(_.seat).toSet.contains(seat)).headOption
 
@@ -74,13 +79,16 @@ case class PokerGame(
   def canPlayerAllIn(player: PokerPlayer): Boolean =
     playerToActSeat == player.seat && player.hasCards
 
+  def activePlayers: List[PokerPlayer] =
+    players.values.filter(_.hasCards).toList
+
   def nextToAct(updatedPot: Pot = pot): PokerGame =
     copy(playerToActSeat = nthAfter(1, playerToActSeat), pot = updatedPot)
 
   def nextState: PokerGameState = state match {
-    case RoundStart => if (players.values.count(_.hasCards) > 1) Flop else RoundEnd
-    case Flop       => if (players.values.count(_.hasCards) > 1) Turn else RoundEnd
-    case Turn       => if (players.values.count(_.hasCards) > 1) River else RoundEnd
+    case RoundStart => if (activePlayers.size > 1) Flop else RoundEnd
+    case Flop       => if (activePlayers.size > 1) Turn else RoundEnd
+    case Turn       => if (activePlayers.size > 1) River else RoundEnd
     case River      => RoundEnd
     case RoundEnd   => RoundStart
   }

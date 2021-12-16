@@ -3,7 +3,7 @@ package mixzpoker.components
 import com.raquo.laminar.api.L._
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.core.Card
-import mixzpoker.domain.game.poker.PokerPlayer
+import mixzpoker.domain.game.poker.{PokerPlayer, Pot}
 
 object Svg {
   // poker table stolen from
@@ -277,6 +277,33 @@ object Svg {
     svg.g(
       svg.idAttr := "Board",
       cards.zipWithIndex.map { case (card, i) => OpenCard(card, 270 + i * 50, 230) }
+    )
+
+  def Pot(pot: Pot): SvgElement =
+    svg.g(
+      svg.rect(
+        svg.x := "600",
+        svg.y := "230",
+        svg.rx := "3",
+        svg.ry := "3",
+        svg.width := "80",
+        svg.height := "62",
+        svg.fill := "#E9C891"
+      ),
+      svg.text(
+        svg.x := "610",
+        svg.y := "250",
+        svg.fontSize := "18",
+        svg.fontWeight := "bold",
+        "Pot:"
+      ),
+      svg.text(
+        svg.x := "620",
+        svg.y := "280",
+        svg.fontSize := "20",
+        svg.fontWeight := "bold",
+        pot.playerBets.values.sum.toString
+      )
     )
 
   def PlayerAvatar(x: Double, y: Double, sx: Double, sy: Double): SvgElement = {

@@ -105,14 +105,9 @@ object LobbyPage {
         )
       }
 
-      def GameStartProcess() = {
-        div(
-          cls("lobby-game-area"),
-          p(
-            cls := "lobby-game-area-text-line",
-            "Everybody is ready! PokerGame is about to start!"
-          )
-        )
+      def GameStartProcess(gameId: String) = {
+        App.router.pushState(Page.PokerGame(gameId))
+        div("Game has started!")
       }
 
       div(
@@ -163,9 +158,8 @@ object LobbyPage {
         ),
         div(cls("mixz-container"), flexDirection.row,
           div(cls("lobby-main"), flexDirection.column,
-            child <-- lobbyVar.signal.map { l =>
-              if (l.gameId.isDefined) GameStartProcess()
-              else MainArea(lobbyVar.signal.map(_.gameSettings))
+            child <-- lobbyVar.signal.map {
+              _.gameId.fold(MainArea(lobbyVar.signal.map(_.gameSettings)))(GameStartProcess)
             },
             chatArea
           ),

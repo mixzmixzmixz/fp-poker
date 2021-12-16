@@ -1,6 +1,6 @@
 package mixzpoker.game.poker
 
-import cats.effect.ConcurrentEffect
+import cats.effect.{ConcurrentEffect, Timer}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
@@ -27,7 +27,7 @@ trait PokerService[F[_]] {
 }
 
 object PokerService {
-  def of[F[_]: ConcurrentEffect: Logging]: F[PokerService[F]] = for {
+  def of[F[_]: ConcurrentEffect: Logging: Timer]: F[PokerService[F]] = for {
     pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
     //this is different and should be placed somewhere in reliable store in order to restore pokerManager if it fails
     gameRecords   <- Ref.of(Map.empty[GameId, GameRecord])

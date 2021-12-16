@@ -25,52 +25,73 @@ sealed trait PokerCombination {
 object PokerCombination {
 
   case class StraightFlush(sfcards: List[Card]) extends PokerCombination {
-    val maxRank = {
+    def score: Long = {
       val maxRank = sfcards.map(_.rank.asInt).max
       // if there is a K in the fcards then it's TJQKA straight with A as its highest
       // otherwise its A2345 straight with 5 as its highest (rank 4)
-      if (maxRank == 13 && !sfcards.exists(_.rank.asInt == 12)) 4 else maxRank
+      val _maxRank = if (maxRank == 13 && !sfcards.exists(_.rank.asInt == 12)) 4 else maxRank
+      createBitmask(8, List(_maxRank))
     }
-    def score: Long = createBitmask(8, List(maxRank))
+
+    override def toString: String = s"Straight Flush: ${sfcards.map(_.show).mkString}"
   }
 
   case class FourOfAKind(fourCards: List[Card], kicker: Card) extends PokerCombination {
     def score: Long = createBitmask(7, List(fourCards.head.rank.asInt), List(kicker.rank.asInt))
+
+    override def toString: String = s"Four Of A Kind: ${fourCards.map(_.show).mkString} kicker: ${kicker.show}"
   }
 
   case class FullHouse(threeCards: List[Card], twoCards: List[Card]) extends PokerCombination {
     def score: Long = createBitmask(6, List(threeCards.head.rank.asInt), List(twoCards.head.rank.asInt))
+
+    override def toString: String = s"Full House: ${threeCards.map(_.show).mkString} ${twoCards.map(_.show).mkString}"
   }
 
   case class Flush(fcards: List[Card]) extends PokerCombination {
     def score: Long = createBitmask(5, fcards.map(_.rank.asInt))
+
+    override def toString: String = s"Flush: ${fcards.map(_.show).mkString}"
   }
 
   case class Straight(scards: List[Card]) extends PokerCombination {
-    val maxRank = {
+    def score: Long = {
       val maxRank = scards.map(_.rank.asInt).max
       // if there is a K in the fcards then it's TJQKA straight with A as its highest
       // otherwise its A2345 straight with 5 as its highest (rank 4)
-      if (maxRank == 13 && !scards.exists(_.rank.asInt == 12)) 4 else maxRank
+      val _maxRank = if (maxRank == 13 && !scards.exists(_.rank.asInt == 12)) 4 else maxRank
+      createBitmask(4, List(_maxRank))
     }
-    def score: Long = createBitmask(4, List(maxRank))
+
+    override def toString: String = s"Straight: ${scards.map(_.show).mkString}"
   }
 
   case class ThreeOfAKind(threeCards: List[Card], kickers: List[Card]) extends PokerCombination {
     def score: Long = createBitmask(3, List(threeCards.head.rank.asInt), kickers.map(_.rank.asInt))
+
+    override def toString: String =
+      s"Three Of A Kind: ${threeCards.map(_.show).mkString} kickers: ${kickers.map(_.show).mkString(" ")}"
   }
 
   case class TwoPairs(highPair: List[Card], lowPair: List[Card], kicker: Card) extends PokerCombination {
     def score: Long =
       createBitmask(2, List(highPair.head.rank.asInt, lowPair.head.rank.asInt), List(kicker.rank.asInt))
+
+    override def toString: String =
+      s"Two Pairs: ${highPair.map(_.show).mkString} ${lowPair.map(_.show).mkString} ${kicker.show}"
   }
 
   case class Pair(pair: List[Card], kickers: List[Card]) extends PokerCombination {
     def score: Long = createBitmask(1, List(pair.head.rank.asInt), kickers.map(_.rank.asInt))
+
+    override def toString: String =
+      s"Pair: ${pair.map(_.show).mkString} kickers: ${kickers.map(_.show).mkString}"
   }
 
   case class HighCard(kickers: List[Card]) extends PokerCombination {
     def score: Long = createBitmask(0, List(), kickers.map(_.rank.asInt))
+
+    override def toString: String = s"High Card: ${kickers.map(_.show).mkString}"
   }
 
 

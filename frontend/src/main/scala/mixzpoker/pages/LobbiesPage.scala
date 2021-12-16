@@ -89,6 +89,7 @@ object LobbiesPage {
               createLobbyRequest(CreateLobbyRequest(lobbyName.now(), GameType.Poker))
             } --> { _ =>
               isOpen.set(false)
+              App.router.pushState(Page.Lobby(lobbyName.now()))
               lobbyName.set("")
             }
           }

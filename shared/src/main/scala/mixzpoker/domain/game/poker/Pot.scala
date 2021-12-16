@@ -38,12 +38,12 @@ case class Pot(
 }
 
 object Pot {
-  def empty(minBet: Token = 0, maxBet: Token = 0): Pot =
+  def empty(minBet: Token = 0, maxBet: Token = 0, playerIds: List[UserId]): Pot =
     Pot(
       minBet = minBet, maxBet = maxBet,
       betToCall = 0,
-      playerBetsThisRound = Map.empty,
-      playerBets = Map.empty
+      playerBetsThisRound = playerIds.map(id => (id, 0)).toMap,
+      playerBets = playerIds.map(id => (id, 0)).toMap
     )
 
 

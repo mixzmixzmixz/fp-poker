@@ -43,6 +43,12 @@ object PokerGamePage {
           case GameState(game) =>
             dom.console.log(game.asJson.spaces2)
             gameState.set(game)
+            game.showdown.fold(()) { showdown =>
+              chatState.update(_.addLogMessage("Showdown!"))
+              showdown.combs.foreach { ls =>
+                chatState.update(_.addLogMessage(ls.map { case (c, p) => s"${p.name} -> $c"}.mkString(", ")))
+              }
+            }
 
           case PlayerToAction(id, secondsForAction) =>
             gameState.now().players.get(id).fold {
@@ -54,9 +60,6 @@ object PokerGamePage {
           case LogMessage(message) =>
             chatState.update(_.addLogMessage(message))
 
-          case ShowdownWin(showdown) =>
-
-          case NoShowdownWin(player) =>
         }
       }
 
@@ -161,11 +164,12 @@ object PokerGamePage {
             Svg.CardSymbol(),
             Svg.ChipSymbol(),
             Svg.Table(),
+            Svg.Pot(game.pot),
             Svg.Board(game.board),
             game.players.values.map(p =>
               Svg.PlayerInfo(
                 p,
-                isShown = p.userId == appContext.now().user.id,
+                isShown = p.userId == appContext.now().user.id || game.showdown.isDefined,
                 bet = game.pot.playerBetsThisRound.getOrElse(p.userId, 0),
                 isDealer = p.seat == game.dealerSeat,
                 isHighlighted = p.seat == game.playerToActSeat

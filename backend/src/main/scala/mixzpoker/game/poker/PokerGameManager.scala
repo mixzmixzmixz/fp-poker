@@ -1,11 +1,13 @@
 package mixzpoker.game.poker
 
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Timer}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
 import tofu.logging.Logging
 import tofu.syntax.logging._
+
+import scala.concurrent.duration._
 import mixzpoker.AppError
 import mixzpoker.domain.Token
 import mixzpoker.domain.chat.ChatOutputMessage
@@ -31,7 +33,7 @@ trait PokerGameManager[F[_]] {
 }
 
 object PokerGameManager {
-  def create[F[_]: Concurrent: Logging](
+  def create[F[_]: Concurrent: Logging: Timer](
     gameId: GameId, settings: PokerSettings, players: List[Player], queue: Queue[F, PokerEventContext]
   ): F[PokerGameManager[F]] =
     for {
@@ -97,24 +99,18 @@ object PokerGameManager {
         event match {
           case NextState(PokerGameState.RoundStart) =>
             for {
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
+              _ <- Timer[F].sleep(5.seconds)
               g <- roundStarts(game).liftTo[F]
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("New round has begun"))
+              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round has begun"))
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
             } yield g
 
           case NextState(RoundEnd) =>
-            //todo more complext logic
-            // allins
             val moneyWon = game.pot.playerBets.values.sum
-
-            val (winners, maybeShowdown) = if (game.activePlayers.size > 1) {
-              val showdown = PokerCombinationSolver.sortHands(game.board, game.activePlayers)
-              (showdown.combs.head.map(_._2), Some(showdown))
-            } else {
-              (List(game.activePlayers.head), None)
-            }
-
+            val _game = game.calculateWinners()
+            val winners = _game.winners
             val moneyPerWinner = moneyWon / winners.size
             val modulo = moneyWon % winners.size // add to the first player
             val winnersMoney = winners.zipWithIndex.map { case (p, i) =>
@@ -124,15 +120,12 @@ object PokerGameManager {
             val updatedPlayers = winnersMoney.traverse { case (p, money) => increaseBalance(p, money)}
 
             for {
-              g   <- updatedPlayers.liftTo[F].map(game.updatePlayers)
-              _   <- maybeShowdown match {
-                        case Some(sd) =>
-                          _topic.publish1(LogMessage("Showdown!")) *>
-                          _topic.publish1(ShowdownWin(sd))
-                        case None =>
-                          _topic.publish1(LogMessage("NoShowdown!")) *>
-                          _topic.publish1(NoShowdownWin(winners.head))
-                      }
+              g   <- updatedPlayers.liftTo[F].map(_game.updatePlayers)
+              _   <- _topic.publish1(LogMessage("Showdown!"))
+              winnersStr = winnersMoney.map { case (p, m) =>
+                              s"${p.name} -> $m"
+                            }.mkString(", ")
+              _   <- _topic.publish1(LogMessage(s"Winners: $winnersStr"))
               eid <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
               _   <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
             } yield g

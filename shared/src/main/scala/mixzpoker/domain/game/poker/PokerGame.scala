@@ -19,7 +19,9 @@ case class PokerGame(
   pot: Pot,
   board: List[Card],
   state: PokerGameState,
-  settings: PokerSettings
+  settings: PokerSettings,
+  showdown: Option[Showdown] = None,
+  winners: List[PokerPlayer] = List.empty
 ) {
   def nthAfter(n: Int, seat: Int = dealerSeat): Int = {
     val playersLs = players.values.toList.sortBy(_.seat)
@@ -131,6 +133,18 @@ case class PokerGame(
       pot.playerBetsThisRound.getOrElse(p.userId, 0) == pot.betToCall
     }
 
+  def calculateWinners(): PokerGame = {
+    //todo more complext logic
+    // allins
+    val (winners, maybeShowdown) = if (activePlayers.size > 1) {
+      val showdown = PokerCombinationSolver.sortHands(board, activePlayers)
+      (showdown.combs.head.map(_._2), Some(showdown))
+    } else {
+      (List(activePlayers.head), None)
+    }
+    copy(winners = winners, showdown = maybeShowdown, state = RoundEnd)
+  }
+
   def nextRound(): PokerGame =
     copy(
       dealerSeat = nthAfter(1),
@@ -138,8 +152,10 @@ case class PokerGame(
       board = List.empty,
       state = RoundStart,
       deck = Deck.of52,
-      pot = Pot.empty(minBet = settings.bigBlind),
-      players = players.view.mapValues(_.copy(hand = Hand.empty, state = PokerPlayerState.Joined)).toMap
+      pot = Pot.empty(minBet = settings.bigBlind, playerIds = players.keys.toList),
+      players = players.view.mapValues(_.copy(hand = Hand.empty, state = PokerPlayerState.Joined)).toMap,
+      winners = List.empty,
+      showdown = None
     ).dealCards()
 }
 
@@ -155,7 +171,7 @@ object PokerGame {
       playerToActSeat = 1,
       players = Map.from(_players.map(p => p.userId -> p)),
       deck = Deck.of52,
-      pot = Pot.empty(minBet = settings.bigBlind),
+      pot = Pot.empty(minBet = settings.bigBlind, playerIds = players.map(_._1)),
       board = Nil,
       state = RoundStart,
       settings = settings
@@ -169,7 +185,7 @@ object PokerGame {
       playerToActSeat = 1,
       players = Map.empty,
       deck = Deck.of52,
-      pot = Pot.empty(),
+      pot = Pot.empty(playerIds = Nil),
       board = Nil,
       state = RoundStart,
       settings = PokerSettings.defaults

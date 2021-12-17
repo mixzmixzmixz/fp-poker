@@ -7,6 +7,7 @@ import org.http4s.{AuthedRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
 import io.circe.syntax._
+import mixzpoker.domain.user.UserName
 
 
 class UserApi[F[_]: Sync: Concurrent](userRepository: UserRepository[F]) {

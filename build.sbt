@@ -23,9 +23,50 @@ lazy val shared = project
     scalaJSLinkerConfig ~= { _.withSourceMap(false) }
   )
 
+lazy val game_service = project
+  .in(file("game_service"))
+  .enablePlugins(ArtifactoryPlugin)
+  .dependsOn(shared)
+  .settings(
+    version := "0.0.1-SNAPSHOT",
+    scalaVersion := "2.13.6",
+    scalacOptions += "-Wunused:imports",
+    scalacOptions += "-Xsource:3",
+    scalacOptions += "-Ymacro-annotations",
+    libraryDependencies ++= Seq(
+      "io.circe"        %% "circe-generic"       % circeVersion,
+      "io.circe"        %% "circe-parser"        % circeVersion,
+      "io.circe"        %% "circe-refined"       % circeVersion,
+
+      "org.typelevel"   %% "cats-core"           % catsVersion,
+      "org.typelevel"   %% "cats-effect"         % catsEffectVersion,
+
+      "org.apache.kafka"    %  "kafka-clients"       % "2.7.2",
+      "org.apache.kafka"    %  "kafka-streams"       % "2.7.2",
+      "org.apache.kafka"    %% "kafka-streams-scala" % "2.7.2",
+
+      "com.evolutiongaming" %% "kafka-journal"                    % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-persistence"        % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-replicator"         % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % KafkaJournalVersion,
+      "com.evolutiongaming" %% "skafka"                           % SKafkaVersion,
+      "com.evolutiongaming" %% "kafka-launcher"                   % "0.0.11",
+
+
+      "ch.qos.logback"  %  "logback-classic"     % LogbackVersion,
+
+      "tf.tofu"         %% "tofu"                    % TofuVersion,
+      "tf.tofu"         %% "tofu-logging"            % TofuVersion,
+      "tf.tofu"         %% "tofu-logging-derivation" % TofuVersion,
+      "tf.tofu"         %% "tofu-kernel-ce2-interop" % TofuVersion,
+
+      "org.scalatestplus" %% "scalatestplus-scalacheck" % scalaTestVersion % Test
+    )
+  )
 
 lazy val backend = project
   .in(file("backend"))
+  .enablePlugins(ArtifactoryPlugin)
   .settings(
     name := "MixzPokerBackend",
     version := "0.0.1-SNAPSHOT",
@@ -47,6 +88,17 @@ lazy val backend = project
 
       "org.typelevel"   %% "cats-core"           % catsVersion,
       "org.typelevel"   %% "cats-effect"         % catsEffectVersion,
+
+
+      "org.apache.kafka"    %  "kafka-clients"       % "2.7.1",
+      "org.apache.kafka"    %  "kafka-streams"       % "2.7.1",
+      "org.apache.kafka"    %% "kafka-streams-scala" % "2.7.1",
+
+      "com.evolutiongaming" %% "kafka-journal"                    % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-persistence"        % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-replicator"         % KafkaJournalVersion,
+      "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % KafkaJournalVersion,
+      "com.evolutiongaming" %% "skafka"                           % SKafkaVersion,
 
       "eu.timepit"      %% "refined"             % refinedVersion,
 

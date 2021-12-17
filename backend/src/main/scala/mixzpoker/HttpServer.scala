@@ -23,7 +23,7 @@ object HttpServer {
 
   def run[F[_]: ConcurrentEffect: Timer]: F[ExitCode] = {
     implicit val makeLogging: Logging.Make[F] = Logging.Make.plain[F]
-    implicit val logging: Logging[F] = makeLogging.byName("Simple Log")
+    implicit val logging: Logging[F] = makeLogging.byName("MainLog")
 
     for {
       counter      <- Ref[F].of(0)

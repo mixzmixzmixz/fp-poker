@@ -5,3 +5,5 @@ logLevel := Level.Warn
 addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.7.1")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalajs-bundler" % "0.20.0")
+
+addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")

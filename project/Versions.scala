@@ -11,6 +11,9 @@ object Versions {
   val pprintVersion = "0.5.6"
   val TofuVersion = "0.10.6"
 
+  val KafkaJournalVersion = "0.0.153"
+  val SKafkaVersion = "11.1.0"
+
   val LogbackVersion = "1.2.3"
   val scalaTestVersion = "3.1.0.0-RC2"
 

@@ -16,7 +16,7 @@ import org.scalajs.dom
 
 object Chat {
 
-  case class ChatState(messages: List[(Option[User], String)] = List.empty) {
+  final case class ChatState(messages: List[(Option[User], String)] = List.empty) {
     def addMessage(user: User, message: String): ChatState = copy(messages = (Some(user), message) :: messages)
     def addLogMessage(message: String): ChatState = copy(messages = (None, message) :: messages)
   }

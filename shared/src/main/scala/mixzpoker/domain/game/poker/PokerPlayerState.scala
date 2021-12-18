@@ -6,13 +6,13 @@ import io.circe.{Decoder, Encoder}
 sealed trait PokerPlayerState
 
 object PokerPlayerState {
-  case object Joined extends PokerPlayerState
-  case object Folded extends PokerPlayerState
-  case object Checked extends PokerPlayerState
-  case object Called extends PokerPlayerState
-  case object AllIned extends PokerPlayerState
-  case object Raised extends PokerPlayerState
-  case object Active extends PokerPlayerState
+  final case object Joined extends PokerPlayerState
+  final case object Folded extends PokerPlayerState
+  final case object Checked extends PokerPlayerState
+  final case object Called extends PokerPlayerState
+  final case object AllIned extends PokerPlayerState
+  final case object Raised extends PokerPlayerState
+  final case object Active extends PokerPlayerState
 
   implicit val pokerPlayerStateEncoder: Encoder[PokerPlayerState] = Encoder[String].contramap {
     case Joined  => "joined"

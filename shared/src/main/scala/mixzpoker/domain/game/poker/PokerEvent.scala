@@ -14,17 +14,17 @@ object PokerEvent {
   sealed trait PokerPlayerEvent extends PokerEvent  //created by players
   sealed trait PokerGameEvent extends PokerEvent    // created by game
 
-  case object Ping extends PokerPlayerEvent // todo not really a poker event though
-  case class Join(buyIn: Token, name: UserName) extends PokerPlayerEvent // todo username shouldn't come from the frontend
-  case object Leave extends PokerPlayerEvent
+  final case object Ping extends PokerPlayerEvent // todo not really a poker event though
+  final case class Join(buyIn: Token, name: UserName) extends PokerPlayerEvent // todo username shouldn't come from the frontend
+  final case object Leave extends PokerPlayerEvent
 
-  case object Fold extends PokerPlayerEvent
-  case object Check extends PokerPlayerEvent
-  case object Call extends PokerPlayerEvent
-  case class Raise(amount: Token) extends PokerPlayerEvent
-  case object AllIn extends PokerPlayerEvent
+  final case object Fold extends PokerPlayerEvent
+  final case object Check extends PokerPlayerEvent
+  final case object Call extends PokerPlayerEvent
+  final case class Raise(amount: Token) extends PokerPlayerEvent
+  final case object AllIn extends PokerPlayerEvent
 
-  case class NextState(state: PokerGameState) extends PokerGameEvent
+  final case class NextState(state: PokerGameState) extends PokerGameEvent
 
 
   implicit val jDecoder: Decoder[Join] = deriveDecoder

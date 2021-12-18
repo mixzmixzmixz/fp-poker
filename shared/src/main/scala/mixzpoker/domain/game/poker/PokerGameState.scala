@@ -5,11 +5,11 @@ import io.circe.{Decoder, Encoder}
 sealed trait PokerGameState
 
 object PokerGameState {
-  case object RoundStart extends PokerGameState
-  case object Flop extends PokerGameState
-  case object Turn extends PokerGameState
-  case object River extends PokerGameState
-  case object RoundEnd extends PokerGameState
+  final case object RoundStart extends PokerGameState
+  final case object Flop extends PokerGameState
+  final case object Turn extends PokerGameState
+  final case object River extends PokerGameState
+  final case object RoundEnd extends PokerGameState
 
   implicit val pgsEncoder: Encoder[PokerGameState] = Encoder[String].contramap {
     case RoundStart => "RoundStart"

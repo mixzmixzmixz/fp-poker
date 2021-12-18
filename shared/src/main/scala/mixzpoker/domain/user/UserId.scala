@@ -4,7 +4,7 @@ import io.circe.{Decoder, Encoder}
 
 import scala.util.Random
 
-case class UserId(value: Int) extends AnyVal {
+final case class UserId(value: Int) extends AnyVal {
   override def toString: String = value.toString
 }
 

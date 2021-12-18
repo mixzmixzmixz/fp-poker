@@ -14,11 +14,11 @@ import io.circe.generic.JsonCodec
 
 
 
-class HelloWorld[F[_]: Sync : Concurrent](counter: Ref[F, Int]) {
+class HelloWorld[F[_]: Concurrent](counter: Ref[F, Int]) {
   object Response {
 
     @JsonCodec
-    case class HelloWorld(test: String, hello: String)
+    final case class HelloWorld(test: String, hello: String)
   }
 
   val dsl = new Http4sDsl[F]{}

@@ -9,9 +9,9 @@ import mixzpoker.domain.user.User
 sealed trait ChatOutputMessage
 
 object ChatOutputMessage {
-  case class ChatMessageFrom(message: String, user: User) extends ChatOutputMessage
-  case class ErrorMessage(message: String) extends ChatOutputMessage
-  case object KeepAlive extends ChatOutputMessage
+  final case class ChatMessageFrom(message: String, user: User) extends ChatOutputMessage
+  final case class ErrorMessage(message: String) extends ChatOutputMessage
+  final case object KeepAlive extends ChatOutputMessage
 
 
   implicit val cmDecoder: Decoder[ChatMessageFrom] = deriveDecoder

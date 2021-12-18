@@ -6,7 +6,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import mixzpoker.domain.game.GameSettings
 
 
-case class PokerSettings(
+final case class PokerSettings(
   playersCount: Int, maxPlayers: Int = 9, minPlayers: Int = 2,
   smallBlind: Int, bigBlind: Int, ante: Int,
   buyInMin: Int, buyInMax: Int

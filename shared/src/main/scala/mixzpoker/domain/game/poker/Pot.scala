@@ -8,7 +8,7 @@ import mixzpoker.domain.user.UserId
 
 
 //todo rename round
-case class Pot(
+final case class Pot(
   minBet: Token, // min bet allowed (e.g. big blind)
   maxBet: Token, // max bet allowed (e.g. pot limit in limit-holdem) // todo use maxBet in some versions of the game
   betToCall: Token, // last bet made needed to be called by others

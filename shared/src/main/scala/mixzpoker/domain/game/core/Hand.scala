@@ -4,7 +4,7 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 
-case class Hand(cards: List[Card]) {
+final case class Hand(cards: List[Card]) {
   def lastOption: Option[Card] = cards.headOption
 
   def addCard(card: Card): Hand = copy(cards = card::cards)

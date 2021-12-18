@@ -8,7 +8,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 sealed trait ChatInputMessage
 
 object ChatInputMessage {
-  case class ChatMessage(message: String) extends ChatInputMessage
+  final case class ChatMessage(message: String) extends ChatInputMessage
 
 
   implicit val cmDecoder: Decoder[ChatMessage] = deriveDecoder

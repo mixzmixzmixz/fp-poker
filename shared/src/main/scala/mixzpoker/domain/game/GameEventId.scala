@@ -5,7 +5,7 @@ import io.circe.{Decoder, Encoder}
 import java.util.UUID
 import scala.util.Try
 
-case class GameEventId(value: UUID) extends AnyVal {
+final case class GameEventId(value: UUID) extends AnyVal {
   override def toString: String = value.toString.replace("-", "")
 }
 

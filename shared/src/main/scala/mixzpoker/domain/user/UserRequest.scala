@@ -10,9 +10,9 @@ object UserRequest {
 
 
   // signIn and signUp might be different in the future
-  case class SignUpRequest(userName: String, password: String) extends UserRequest
+  final case class SignUpRequest(userName: String, password: String) extends UserRequest
 
-  case class SignInRequest(userName: String, password: String) extends UserRequest
+  final case class SignInRequest(userName: String, password: String) extends UserRequest
 
 
   implicit val signUpRequestDecoder: Decoder[SignUpRequest] = deriveDecoder

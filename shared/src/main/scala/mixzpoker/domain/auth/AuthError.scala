@@ -6,8 +6,8 @@ import mixzpoker.domain.user.UserError
 sealed trait AuthError extends AppError
 
 object AuthError {
-  case object NoAuthorizationHeader extends AuthError
-  case object InvalidToken extends AuthError
-  case object NoSuchToken extends AuthError
-  case class UserErrorWrapper(userError: UserError) extends AuthError
+  final case object NoAuthorizationHeader extends AuthError
+  final case object InvalidToken extends AuthError
+  final case object NoSuchToken extends AuthError
+  final case class UserErrorWrapper(userError: UserError) extends AuthError
 }

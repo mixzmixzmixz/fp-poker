@@ -3,7 +3,7 @@ package mixzpoker.domain.user
 import io.circe.{Decoder, Encoder}
 
 
-case class UserPassword(value: String) extends AnyVal
+final case class UserPassword(value: String) extends AnyVal
 
 object UserPassword {
   //todo validation using cats Validated (here or in the backend)

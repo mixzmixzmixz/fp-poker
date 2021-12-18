@@ -6,7 +6,7 @@ import io.circe.{Decoder, Encoder}
 sealed trait GameType
 
 object GameType {
-  case object Poker extends GameType
+  final case object Poker extends GameType
 
   def all: List[GameType] = List(Poker)
 

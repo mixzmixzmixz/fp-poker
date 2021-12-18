@@ -9,22 +9,22 @@ sealed trait Suit {
 }
 
 object Suit {
-  case object Diamonds extends Suit {
+  final case object Diamonds extends Suit {
     override def show: String = "♦"
     override def isRed: Boolean = true
   }
 
-  case object Hearts extends Suit {
+  final case object Hearts extends Suit {
     override def show: String = "♥"
     override def isRed: Boolean = true
   }
 
-  case object Clubs extends Suit {
+  final case object Clubs extends Suit {
     override def show: String = "♣"
     override def isRed: Boolean = false
   }
 
-  case object Spades extends Suit {
+  final case object Spades extends Suit {
     override def show: String = "♠"
     override def isRed: Boolean = false
   }

@@ -18,7 +18,7 @@ trait Deck {
 }
 
 object Deck {
-  case class Deck52(cards: List[Card]) extends Deck {
+  final case class Deck52(cards: List[Card]) extends Deck {
     override def getRandomCard: Option[(Card, Deck)] = cards.length match {
       case 0 => None
       case _ =>

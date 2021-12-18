@@ -4,7 +4,7 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 
-case class Card(rank: Rank, suit: Suit) {
+final case class Card(rank: Rank, suit: Suit) {
   def show: String = s"${rank.show}${suit.show}"
   def isRed: Boolean = suit.isRed
   def isBlack: Boolean = suit.isBlack

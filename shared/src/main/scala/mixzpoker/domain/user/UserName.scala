@@ -2,7 +2,7 @@ package mixzpoker.domain.user
 
 import io.circe.{Decoder, Encoder}
 
-case class UserName(value: String) extends AnyVal {
+final case class UserName(value: String) extends AnyVal {
   override def toString: String = value
 }
 

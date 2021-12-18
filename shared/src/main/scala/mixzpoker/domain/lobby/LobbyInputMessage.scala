@@ -9,10 +9,10 @@ import mixzpoker.domain.Token
 sealed trait LobbyInputMessage
 
 object LobbyInputMessage {
-  case class Join(buyIn: Token) extends LobbyInputMessage
-  case object Leave extends LobbyInputMessage
-  case object Ready extends LobbyInputMessage
-  case object NotReady extends LobbyInputMessage
+  final case class Join(buyIn: Token) extends LobbyInputMessage
+  final case object Leave extends LobbyInputMessage
+  final case object Ready extends LobbyInputMessage
+  final case object NotReady extends LobbyInputMessage
 
 
 

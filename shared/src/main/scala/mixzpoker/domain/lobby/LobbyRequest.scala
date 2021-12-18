@@ -10,7 +10,7 @@ sealed trait LobbyRequest
 
 object LobbyRequest {
   @JsonCodec
-  case class CreateGameResponse(id: String)
+  final case class CreateGameResponse(id: String)
 
   final case class CreateLobbyRequest(name: String, gameType: GameType) extends LobbyRequest
 

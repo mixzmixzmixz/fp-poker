@@ -8,7 +8,7 @@ import mixzpoker.domain.user.{UserId, UserName}
 import mixzpoker.domain.game.poker.PokerPlayerState._
 
 
-case class PokerPlayer(
+final case class PokerPlayer(
   userId: UserId,
   name: UserName,
   seat: Int,

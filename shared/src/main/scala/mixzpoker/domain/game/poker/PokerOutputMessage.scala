@@ -8,10 +8,10 @@ import mixzpoker.domain.user.UserId
 sealed trait PokerOutputMessage
 
 object PokerOutputMessage {
-  case class ErrorMessage(toUser: Option[UserId], message: String) extends PokerOutputMessage
-  case class GameState(game: PokerGame) extends PokerOutputMessage
-  case class LogMessage(message: String) extends PokerOutputMessage
-  case class PlayerToAction(id: UserId, secondsForAction: Int) extends PokerOutputMessage
+  final case class ErrorMessage(toUser: Option[UserId], message: String) extends PokerOutputMessage
+  final case class GameState(game: PokerGame) extends PokerOutputMessage
+  final case class LogMessage(message: String) extends PokerOutputMessage
+  final case class PlayerToAction(id: UserId, secondsForAction: Int) extends PokerOutputMessage
 
 
   implicit val emDecoder: Decoder[ErrorMessage] = deriveDecoder

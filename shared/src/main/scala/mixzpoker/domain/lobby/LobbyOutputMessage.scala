@@ -7,10 +7,10 @@ import io.circe.syntax._
 sealed trait LobbyOutputMessage
 
 object LobbyOutputMessage {
-  case object KeepAlive extends LobbyOutputMessage
-  case class LobbyState(lobby: Lobby) extends LobbyOutputMessage
-  case class GameStarted(gameId: String) extends LobbyOutputMessage
-  case class ErrorMessage(message: String) extends LobbyOutputMessage
+  final case object KeepAlive extends LobbyOutputMessage
+  final case class LobbyState(lobby: Lobby) extends LobbyOutputMessage
+  final case class GameStarted(gameId: String) extends LobbyOutputMessage
+  final case class ErrorMessage(message: String) extends LobbyOutputMessage
 
 
   implicit val lsDecoder: Decoder[LobbyState] = deriveDecoder

@@ -8,12 +8,12 @@ import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import java.util.UUID
-import mixzpoker.game.{GameError, GameRecord}
-import mixzpoker.game.GameError._
+import mixzpoker.game.GameRecord
 import mixzpoker.domain.chat.ChatOutputMessage
+import mixzpoker.domain.game.GameError._
 import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerGame, PokerGameState, PokerOutputMessage, PokerSettings}
-import mixzpoker.domain.game.{GameEventId, GameId}
-import mixzpoker.lobby.Lobby
+import mixzpoker.domain.game.{GameError, GameEventId, GameId}
+import mixzpoker.domain.lobby.Lobby
 
 
 trait PokerService[F[_]] {
@@ -27,6 +27,7 @@ trait PokerService[F[_]] {
 }
 
 object PokerService {
+  //todo of -> resource
   def of[F[_]: ConcurrentEffect: Logging: Timer]: F[PokerService[F]] = for {
     pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
     //this is different and should be placed somewhere in reliable store in order to restore pokerManager if it fails
@@ -34,6 +35,10 @@ object PokerService {
     _queue        <- Queue.unbounded[F, PokerEventContext]
   } yield new PokerService[F] {
     override def queue: Queue[F, PokerEventContext] = _queue
+
+    //
+    //
+
 
     override def run: F[Unit] =
       info"Run poker App!" *>

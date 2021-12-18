@@ -3,14 +3,12 @@ package mixzpoker.domain.lobby
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe._
 import io.circe.syntax._
-import mixzpoker.domain.user.UserDto.UserDto
-import mixzpoker.domain.lobby.LobbyDto.LobbyDto
 
 sealed trait LobbyOutputMessage
 
 object LobbyOutputMessage {
   case object KeepAlive extends LobbyOutputMessage
-  case class LobbyState(lobby: LobbyDto) extends LobbyOutputMessage
+  case class LobbyState(lobby: Lobby) extends LobbyOutputMessage
   case class GameStarted(gameId: String) extends LobbyOutputMessage
   case class ErrorMessage(message: String) extends LobbyOutputMessage
 

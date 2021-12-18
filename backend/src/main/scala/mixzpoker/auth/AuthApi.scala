@@ -11,9 +11,12 @@ import org.http4s.util.CaseInsensitiveString
 import io.circe.syntax._
 import tofu.logging.Logging
 import tofu.syntax.logging._
-import mixzpoker.user.{User, UserRepository}
-import AuthError._
-import mixzpoker.domain.user.UserName
+
+import mixzpoker.user.UserRepository
+import mixzpoker.domain.user.{User, UserName}
+import mixzpoker.domain.auth.AuthError._
+import mixzpoker.domain.auth.{AuthError, AuthToken}
+import mixzpoker.domain.auth.AuthRequest
 
 
 class AuthApi[F[_]: Concurrent: Logging](
@@ -31,7 +34,7 @@ class AuthApi[F[_]: Concurrent: Logging](
         .map(_.asRight[AuthError])
     }.recover { case ae: AuthError => ae.asLeft[User] }
 
-  val authUser: Kleisli[F, Request[F], ErrOr[User]] = Kleisli({ request =>
+  val authUser: Kleisli[F, Request[F], Either[AuthError, User]] = Kleisli({ request =>
      (for {
       header    <- request.headers.get(CaseInsensitiveString("Authorization")).toRight(NoAuthorizationHeader).liftTo[F]
       user      <- getAuthUser(header.value)
@@ -51,12 +54,12 @@ class AuthApi[F[_]: Concurrent: Logging](
 
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {
     case req @ POST -> Root / "auth" / "sign-out" as user => signOut(req.req, user)
-    case       GET  -> Root / "auth" / "me"       as user => Ok(user.dto.asJson)
+    case       GET  -> Root / "auth" / "me"       as user => Ok(user.asJson)
   }
 
   private def signIn(request: Request[F]): F[Response[F]] = for {
     _         <- info"SignIN request"
-    req       <- request.decodeJson[AuthDto.SignInRequest]
+    req       <- request.decodeJson[AuthRequest.SignInRequest]
     _         <- info"SignIN request ${req.toString}"
     user      <- userRepository.get(UserName(req.userName))
     _         <- user.checkPassword(req.password).liftTo[F]
@@ -73,7 +76,7 @@ class AuthApi[F[_]: Concurrent: Logging](
   } yield resp
 
   private def signUp(request: Request[F]): F[Response[F]] = for {
-    req       <- request.decodeJson[AuthDto.RegisterUserRequest]
+    req       <- request.decodeJson[AuthRequest.RegisterUserRequest]
     user      <- User.create(req.userName, req.password).liftTo[F]
     _         <- userRepository.checkUserAlreadyExist(user.name)
     _         <- userRepository.save(user)

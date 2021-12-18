@@ -15,19 +15,18 @@ import mixzpoker.components.Chat
 import mixzpoker.components.Dialogs._
 import mixzpoker.domain.game.GameSettings
 import mixzpoker.{App, AppContext, AppError, Config, Page}
-import mixzpoker.domain.lobby.LobbyDto.LobbyDto
-import mixzpoker.domain.lobby.{LobbyInputMessage, LobbyOutputMessage}
+import mixzpoker.domain.lobby.{Lobby, LobbyInputMessage, LobbyOutputMessage}
 import mixzpoker.domain.lobby.LobbyOutputMessage._
 import mixzpoker.domain.lobby.LobbyInputMessage._
 
 object LobbyPage {
 
   object requests {
-    def getLobbyRequest(name: String)(implicit appContext: Var[AppContext]): EventStream[Try[LobbyDto]] =
+    def getLobbyRequest(name: String)(implicit appContext: Var[AppContext]): EventStream[Try[Lobby]] =
       Fetch.get(
         url = s"${Config.rootEndpoint}/lobby/$name",
         headers = Map("Authorization" -> appContext.now().token)
-      ).decodeOkay[LobbyDto].recoverToTry.map(_.map(_.data))
+      ).decodeOkay[Lobby].recoverToTry.map(_.map(_.data))
   }
 
   import requests._
@@ -39,9 +38,9 @@ object LobbyPage {
     .build(reconnectRetries = 5, reconnectDelay = 3.seconds)
 
   def apply($lobbyPage: Signal[Page.Lobby])(implicit appContext: Var[AppContext]): HtmlElement = {
-    def renderLobby(lobbyInit: LobbyDto): HtmlElement = {
-      val ws                    = createWS(lobbyInit.name)
-      val lobbyVar              = Var[LobbyDto](lobbyInit)
+    def renderLobby(lobbyInit: Lobby): HtmlElement = {
+      val ws                    = createWS(lobbyInit.name.toString)
+      val lobbyVar              = Var[Lobby](lobbyInit)
       val isSettingsDialogOpen  = Var(false)
       val isJoinLobbyDialogOpen = Var(false)
       val $me                   = lobbyVar.signal.combineWith(appContext.signal.map(_.user)).map {
@@ -120,7 +119,7 @@ object LobbyPage {
         cls("lobby-container"),
         div(
           cls("lobby-heading"),
-          span(child.text <-- lobbyVar.signal.map(_.name), cls("lobby-heading-name")),
+          span(child.text <-- lobbyVar.signal.map(_.name.toString), cls("lobby-heading-name")),
           child <-- lobbyVar.signal.map { lobby =>
             SettingsDialog(isSettingsDialogOpen, lobby.gameSettings)
           },
@@ -159,7 +158,7 @@ object LobbyPage {
         div(cls("mixz-container"), flexDirection.row,
           div(cls("lobby-main"), flexDirection.column,
             child <-- lobbyVar.signal.map {
-              _.gameId.fold(MainArea(lobbyVar.signal.map(_.gameSettings)))(GameStartProcess)
+              _.gameId.fold(MainArea(lobbyVar.signal.map(_.gameSettings)))(gid => GameStartProcess(gid.toString))
             },
             chatArea
           ),
@@ -171,7 +170,7 @@ object LobbyPage {
     val $lobby = $lobbyPage.flatMap(l => getLobbyRequest(l.name)).map(
       _.fold(ExceptionPage.apply, l => l.gameId match {
         case Some(gameId) =>
-          App.router.pushState(Page.PokerGame(gameId))
+          App.router.pushState(Page.PokerGame(gameId.toString))
           div()
         case None => renderLobby(l)
       })
@@ -195,7 +194,7 @@ object LobbyPage {
     )
   }
 
-  def Users(lobby: LobbyDto): HtmlElement = {
+  def Users(lobby: Lobby): HtmlElement = {
     if (lobby.players.isEmpty)
       div("No Users!")
     else

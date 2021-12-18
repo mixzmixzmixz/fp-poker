@@ -4,17 +4,17 @@ import com.raquo.laminar.api.L._
 import io.laminext.fetch.circe._
 import laminar.webcomponents.material.{Icon, IconButton, List => MWCList}
 import mixzpoker.components.Navigation
-import mixzpoker.domain.lobby.LobbyDto.LobbyDto
+import mixzpoker.domain.lobby.Lobby
 import mixzpoker.{App, AppContext, AppError, Config, Page}
 
 object PokerGamesPage {
 
   object requests {
-    def getPokerGamesRequest()(implicit appContext: Var[AppContext]): EventStream[List[LobbyDto]] = {
+    def getPokerGamesRequest()(implicit appContext: Var[AppContext]): EventStream[List[Lobby]] = {
       Fetch.get(
         url = s"${Config.rootEndpoint}/poker",
         headers = Map("Authorization" -> appContext.now().token)
-      ).decodeOkay[List[LobbyDto]].recoverToTry.map(_.fold(
+      ).decodeOkay[List[Lobby]].recoverToTry.map(_.fold(
         err => {
           appContext.now().error.set(AppError.GeneralError(err.toString))
           List()
@@ -26,7 +26,7 @@ object PokerGamesPage {
 
   def apply()(implicit appContext: Var[AppContext]): HtmlElement = {
 
-    def GameItem(lobby: LobbyDto): MWCList.ListItem.El = {
+    def GameItem(lobby: Lobby): MWCList.ListItem.El = {
       MWCList.ListItem(
         _ => cls("lobby-list-item"),
         _.`tabindex` := -1,
@@ -34,7 +34,7 @@ object PokerGamesPage {
         _.`twoline` := true,
         _.`hasMeta` := true,
         _.slots.graphic(Icon().amend(span("casino"))),
-        _.slots.default(span(lobby.name)),
+        _.slots.default(span(lobby.name.toString)),
         _.slots.secondary(span(s"${lobby.gameType}   ${lobby.players.length} / ${lobby.gameSettings.maxPlayers}")),
         _.slots.meta(IconButton(_.`icon` := "casino")),
         _ => onClick --> { _ =>
@@ -42,7 +42,7 @@ object PokerGamesPage {
             appContext.now().error.set(AppError.GeneralError(s"No game for lobby ${lobby.name}"))
             App.router.pushState(Page.Redirect)
           } {
-            gameId => App.router.pushState(Page.PokerGame(gameId))
+            gameId => App.router.pushState(Page.PokerGame(gameId.toString))
           }
         }
       )

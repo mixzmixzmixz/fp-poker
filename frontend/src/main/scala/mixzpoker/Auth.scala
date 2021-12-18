@@ -7,14 +7,14 @@ import io.laminext.core.StoredString
 import laminar.webcomponents.material.{Button, Textfield}
 import mixzpoker.App.router
 import mixzpoker.components.Navigation._
-import mixzpoker.domain.user.UserDto._
+import mixzpoker.domain.user.UserRequest._
 
 
 object Auth {
 
   object requests {
 
-    def signInRequest(body: SignInDto): EventStream[String] = Fetch
+    def signInRequest(body: SignInRequest): EventStream[String] = Fetch
       .post(
         url = s"${Config.rootEndpoint}/auth/sign-in",
         body = body.asJson
@@ -25,7 +25,7 @@ object Auth {
       }))
 
 
-    def signUpRequest(body: SignUpDto): EventStream[String] = Fetch
+    def signUpRequest(body: SignUpRequest): EventStream[String] = Fetch
       .post(
         url = s"${Config.rootEndpoint}/auth/sign-up",
         body = body.asJson
@@ -68,7 +68,7 @@ object Auth {
           _.`label` := "Sign In!",
           _ => inContext { thisNode =>
             val $token = thisNode.events(onClick).flatMap { _ =>
-              signInRequest(SignInDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
+              signInRequest(SignInRequest(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
             }
 
             List(
@@ -118,7 +118,7 @@ object Auth {
             _.`label` := "Sign Up!",
             _ => inContext { thisNode =>
               val $token = thisNode.events(onClick).flatMap { _ =>
-                signUpRequest(SignUpDto(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
+                signUpRequest(SignUpRequest(loginVar.now().toLowerCase, passwordVar.now().toLowerCase))
               }
 
               List(

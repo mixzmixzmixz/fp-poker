@@ -3,9 +3,8 @@ package mixzpoker.user
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-
-import mixzpoker.domain.user.UserName
-import UserError._
+import mixzpoker.domain.user.UserError._
+import mixzpoker.domain.user.{User, UserName}
 
 
 trait UserRepository[F[_]] {

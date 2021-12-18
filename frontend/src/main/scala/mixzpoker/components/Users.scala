@@ -3,7 +3,7 @@ package mixzpoker.components
 import com.raquo.laminar.api.L._
 import io.laminext.syntax.core._
 import laminar.webcomponents.material.{Button, Icon, List, Menu}
-import mixzpoker.{AppContext, AppState}
+import mixzpoker.AppContext
 
 object Users {
 
@@ -40,7 +40,7 @@ object Users {
             ),
             _.slots.secondary(
               span(
-                child.text <-- appContext.signal.map(ac => s"Balance: ${ac.user.tokens}"),
+                child.text <-- appContext.signal.map(ac => s"Balance: ${ac.user.amount}"),
                 cls("menu-txt")
               )
             ),

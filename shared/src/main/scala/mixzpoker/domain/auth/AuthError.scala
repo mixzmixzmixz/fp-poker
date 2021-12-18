@@ -1,13 +1,11 @@
-package mixzpoker.auth
+package mixzpoker.domain.auth
 
-import mixzpoker.AppError
-import mixzpoker.user.UserError
+import mixzpoker.domain.AppError
+import mixzpoker.domain.user.UserError
 
 sealed trait AuthError extends AppError
 
 object AuthError {
-  type ErrOr[A] = Either[AuthError, A]
-
   case object NoAuthorizationHeader extends AuthError
   case object InvalidToken extends AuthError
   case object NoSuchToken extends AuthError

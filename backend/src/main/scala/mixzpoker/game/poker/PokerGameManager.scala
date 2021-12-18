@@ -8,17 +8,16 @@ import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import scala.concurrent.duration._
-import mixzpoker.AppError
-import mixzpoker.domain.Token
+import mixzpoker.domain.{AppError, Token}
 import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
 import mixzpoker.domain.game.poker.PokerGameState._
 import mixzpoker.domain.game.poker.PokerOutputMessage._
 import mixzpoker.domain.game.{GameEventId, GameId}
+import mixzpoker.domain.lobby.Player
 import mixzpoker.domain.user.{UserId, UserName}
-import mixzpoker.game.poker.PokerError._
-import mixzpoker.lobby.Player
+import mixzpoker.domain.game.poker.PokerError._
 
 import java.util.UUID
 
@@ -72,6 +71,8 @@ object PokerGameManager {
                                   }
                     } yield game
                   }
+
+          // todo _ <- gameRef.modify()
           _    <- gameRef.update(_ => game)
         } yield PokerOutputMessage.GameState(game = game): PokerOutputMessage
       }.recover {
@@ -82,6 +83,7 @@ object PokerGameManager {
           (PokerOutputMessage.ErrorMessage(ec.userId, err.toString): PokerOutputMessage).pure[F]
       )
 
+      //todo change to f[either]
       def processPlayerEvent(game: PokerGame, event: PokerPlayerEvent, userId: UserId): F[PokerGame] = {
         event match {
           case Ping              => Right(game)

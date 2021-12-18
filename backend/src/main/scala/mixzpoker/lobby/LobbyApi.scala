@@ -6,6 +6,7 @@ import fs2.{Pull, Stream}
 import fs2.concurrent.{Queue, Topic}
 import io.circe.parser.decode
 import io.circe.syntax._
+import mixzpoker.domain.auth.AuthError
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
@@ -14,13 +15,11 @@ import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{AuthedRoutes, HttpRoutes, Request, Response}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
-import mixzpoker.auth.AuthError
 import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
-import mixzpoker.user.User
-import mixzpoker.domain.lobby.{LobbyDto, LobbyInputMessage, LobbyOutputMessage}
+import mixzpoker.domain.game.GameError
+import mixzpoker.domain.lobby.{LobbyError, LobbyInputMessage, LobbyName, LobbyOutputMessage, LobbyRequest}
 import mixzpoker.domain.lobby.LobbyInputMessage._
-import mixzpoker.game.GameError
+import mixzpoker.domain.user.User
 
 
 class LobbyApi[F[_]: Sync: Logging](
@@ -32,7 +31,7 @@ class LobbyApi[F[_]: Sync: Logging](
   import dsl._
 
   object LobbyNameVar {
-    def unapply(name: String): Option[LobbyName] = LobbyName.fromString(name).toOption
+    def unapply(name: String): Option[LobbyName] = LobbyName.fromString(name)
   }
 
   def routes: HttpRoutes[F] = HttpRoutes.of[F] {
@@ -104,7 +103,7 @@ class LobbyApi[F[_]: Sync: Logging](
         }.collect {
           case Right(msg) => msg
         }.map {
-          case ChatInputMessage.ChatMessage(message) => (name, ChatOutputMessage.ChatMessageFrom(message, user.dto))
+          case ChatInputMessage.ChatMessage(message) => (name, ChatOutputMessage.ChatMessageFrom(message, user))
         }
 
       //todo simplify. all the messages go through the pipe
@@ -146,18 +145,18 @@ class LobbyApi[F[_]: Sync: Logging](
     for {
       _       <- info"Get lobbies req user:"
       lobbies <- lobbyRepository.list()
-      _       <- info"Get lobbies: ${lobbies.map(_.dto).asJson.spaces2}"
-      resp    <- Ok(lobbies.map(_.dto).asJson)
+      _       <- info"Get lobbies: ${lobbies.asJson.spaces2}"
+      resp    <- Ok(lobbies.asJson)
     } yield resp
   }
 
   private def getLobby(name: LobbyName): F[Response[F]] = for {
     lobby <- lobbyRepository.get(name)
-    resp  <- Ok(lobby.dto.asJson)
+    resp  <- Ok(lobby.asJson)
   } yield resp
 
   private def createLobby(request: Request[F], user: User): F[Response[F]] = for {
-    req  <- request.decodeJson[LobbyDto.CreateLobbyRequest]
+    req  <- request.decodeJson[LobbyRequest.CreateLobbyRequest]
     _    <- lobbyRepository.create(req.name, user, req.gameType)
     resp <- Created()
   } yield resp

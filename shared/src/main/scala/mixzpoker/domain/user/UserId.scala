@@ -15,6 +15,8 @@ object UserId {
   def fromString(str: String): Option[UserId] =
     str.toIntOption.map(UserId(_))
 
+  def zero: UserId = UserId(0)
+
 
   implicit val encoderUserId: Encoder[UserId] =
     Encoder[String].contramap(a => a.toString)

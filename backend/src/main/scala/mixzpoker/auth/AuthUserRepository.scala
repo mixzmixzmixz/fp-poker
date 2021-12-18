@@ -4,8 +4,10 @@ import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 
+import mixzpoker.domain.auth.AuthError._
+import mixzpoker.domain.auth.AuthToken
 import mixzpoker.domain.user.UserName
-import AuthError._
+
 
 
 trait AuthUserRepository[F[_]] {

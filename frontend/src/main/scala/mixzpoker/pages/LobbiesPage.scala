@@ -7,18 +7,19 @@ import io.circe.syntax._
 import laminar.webcomponents.material.{Button, Dialog, Icon, IconButton, Select, Textfield, List => MList}
 import mixzpoker.{App, AppContext, Config, Page}
 import mixzpoker.domain.game.GameType
-import mixzpoker.domain.lobby.LobbyDto._
+import mixzpoker.domain.lobby.Lobby
+import mixzpoker.domain.lobby.LobbyRequest._
 import org.scalajs.dom
 import org.scalajs.dom.HTMLElement
 
 object LobbiesPage {
 
   object requests {
-    def getLobbiesRequest()(implicit appContext: Var[AppContext]): EventStream[List[LobbyDto]] =
+    def getLobbiesRequest()(implicit appContext: Var[AppContext]): EventStream[List[Lobby]] =
       Fetch.get(
           url = s"${Config.rootEndpoint}/lobby",
           headers = Map("Authorization" -> appContext.now().token)
-        ).decodeOkay[List[LobbyDto]]
+        ).decodeOkay[List[Lobby]]
         .recoverToTry.map(_.fold(
           err => {
             dom.console.log(err.toString)
@@ -39,7 +40,7 @@ object LobbiesPage {
 
   import requests._
 
-  def LobbyItem(lobby: LobbyDto): MList.ListItem.El = {
+  def LobbyItem(lobby: Lobby): MList.ListItem.El = {
     MList.ListItem(
       _ => cls("lobby-list-item"),
       _.`tabindex` := -1,
@@ -47,10 +48,10 @@ object LobbiesPage {
       _.`twoline` := true,
       _.`hasMeta` := true,
       _.slots.graphic(Icon().amend(span("groups"))),
-      _.slots.default(span(lobby.name)),
+      _.slots.default(span(lobby.name.toString)),
       _.slots.secondary(span(s"${lobby.gameType}   ${lobby.players.length} / ${lobby.gameSettings.maxPlayers}")),
       _.slots.meta(IconButton(_.`icon` := "groups")),
-      _ => onClick --> { _ => App.router.pushState(Page.Lobby(lobby.name)) }
+      _ => onClick --> { _ => App.router.pushState(Page.Lobby(lobby.name.toString)) }
     )
   }
 

@@ -3,12 +3,13 @@ package mixzpoker.domain.chat
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import mixzpoker.domain.user.UserDto.UserDto
+import mixzpoker.domain.user.User
+
 
 sealed trait ChatOutputMessage
 
 object ChatOutputMessage {
-  case class ChatMessageFrom(message: String, user: UserDto) extends ChatOutputMessage
+  case class ChatMessageFrom(message: String, user: User) extends ChatOutputMessage
   case class ErrorMessage(message: String) extends ChatOutputMessage
   case object KeepAlive extends ChatOutputMessage
 

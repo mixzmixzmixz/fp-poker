@@ -5,19 +5,19 @@ import io.circe.parser.decode
 import com.raquo.laminar.api.L._
 import io.laminext.websocket.WebSocket
 import laminar.webcomponents.material.{Fab, Textarea, Textfield}
-import mixzpoker.{AppContext, AppError}
 
 import scala.concurrent.duration._
+import mixzpoker.{AppContext, AppError}
 import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
 import mixzpoker.domain.chat.ChatOutputMessage._
 import mixzpoker.domain.chat.ChatInputMessage._
-import mixzpoker.domain.user.UserDto.UserDto
+import mixzpoker.domain.user.User
 import org.scalajs.dom
 
 object Chat {
 
-  case class ChatState(messages: List[(Option[UserDto], String)] = List.empty) {
-    def addMessage(user: UserDto, message: String): ChatState = copy(messages = (Some(user), message) :: messages)
+  case class ChatState(messages: List[(Option[User], String)] = List.empty) {
+    def addMessage(user: User, message: String): ChatState = copy(messages = (Some(user), message) :: messages)
     def addLogMessage(message: String): ChatState = copy(messages = (None, message) :: messages)
   }
 

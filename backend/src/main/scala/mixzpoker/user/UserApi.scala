@@ -7,7 +7,7 @@ import org.http4s.{AuthedRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
 import io.circe.syntax._
-import mixzpoker.domain.user.UserName
+import mixzpoker.domain.user.{User, UserName}
 
 
 class UserApi[F[_]: Sync: Concurrent](userRepository: UserRepository[F]) {
@@ -21,7 +21,7 @@ class UserApi[F[_]: Sync: Concurrent](userRepository: UserRepository[F]) {
 
   private def getUser(name: String): F[Response[F]] = for {
     user <- userRepository.get(UserName(name))
-    resp <- Ok(user.dto.asJson)
+    resp <- Ok(user.asJson)
   } yield resp
 
 

@@ -6,10 +6,11 @@ import io.laminext.fetch.circe._
 import com.raquo.waypoint._
 import upickle.default._
 import laminar.webcomponents.material.{Icon, List, TopAppBarFixed}
+
 import mixzpoker.components.Users.AppUserProfile
 import mixzpoker.AppState._
 import mixzpoker.components.Dialogs.ErrorDialog
-import mixzpoker.domain.user.UserDto.UserDto
+import mixzpoker.domain.user.User
 import mixzpoker.pages._
 
 
@@ -19,7 +20,7 @@ object App {
 
   object requests {
     def getUserInfo(token: String): EventStream[AppContext] = Fetch
-      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[UserDto]
+      .get(endpointUserInfo, headers = Map("Authorization" -> token)).decodeOkay[User]
       .recoverToTry
       .map(_.fold(_ => appContext.now().unauthorized, resp => appContext.now().authorize(resp.data, token)))
   }

@@ -3,10 +3,12 @@ package mixzpoker.lobby
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import mixzpoker.user.User
+
 import mixzpoker.domain.game.GameType
 import mixzpoker.domain.game.poker.PokerSettings
-import LobbyError._
+import mixzpoker.domain.lobby.LobbyError._
+import mixzpoker.domain.lobby.{Lobby, LobbyName}
+import mixzpoker.domain.user.User
 
 
 trait LobbyRepository[F[_]] {
@@ -29,7 +31,7 @@ object LobbyRepository {
   } yield new LobbyRepository[F] {
 
     override def create(name: String, owner: User, gameType: GameType): F[Unit] = for {
-      lobbyName <- LobbyName.fromString(name).liftTo[F]
+      lobbyName <- LobbyName.fromString(name).toRight(NoSuchLobby).liftTo[F] // todo eithers
       settings  <- (gameType match {
                     case GameType.Poker => PokerSettings.create()
                   }).toRight(InvalidSettings).liftTo[F]

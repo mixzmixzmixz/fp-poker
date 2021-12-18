@@ -1,4 +1,4 @@
-package mixzpoker
+package mixzpoker.domain
 
 trait AppError extends Exception
 

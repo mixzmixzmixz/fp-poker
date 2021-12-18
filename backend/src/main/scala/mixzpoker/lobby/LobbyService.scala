@@ -6,15 +6,16 @@ import fs2.concurrent.{Queue, Topic}
 import tofu.logging.Logging
 import tofu.syntax.logging._
 
-import mixzpoker.AppError
-import mixzpoker.domain.Token
+import mixzpoker.domain.{AppError, Token}
 import mixzpoker.domain.chat.ChatOutputMessage
-import mixzpoker.domain.lobby.LobbyOutputMessage
+import mixzpoker.domain.lobby.{Lobby, LobbyName, LobbyOutputMessage}
 import mixzpoker.domain.lobby.LobbyOutputMessage._
 import mixzpoker.domain.lobby.LobbyInputMessage._
+import mixzpoker.domain.lobby.LobbyError._
+import mixzpoker.domain.user.User
 import mixzpoker.game.poker.PokerService
-import mixzpoker.lobby.LobbyError.GameIsAlreadyStarted
-import mixzpoker.user.User
+
+
 
 //todo make topic/queue per user?
 trait LobbyService[F[_]] {
@@ -32,7 +33,7 @@ object LobbyService {
     pokerService: PokerService[F]
   ): F[LobbyService[F]] = for {
     _queue     <- Queue.unbounded[F, LobbyMessageContext]
-    ln         <- LobbyName.fromString("asdasd").liftTo[F] // todo fix
+    ln         <- LobbyName.fromString("asdasd").toRight(NoSuchLobby).liftTo[F] // todo fix
     _topic     <- Topic[F, (LobbyName, LobbyOutputMessage)]((ln, KeepAlive))
     _chatTopic <- Topic[F, (LobbyName, ChatOutputMessage)]((ln, ChatOutputMessage.KeepAlive))
   } yield new LobbyService[F] {
@@ -85,18 +86,18 @@ object LobbyService {
                  else
                   lobby.pure[F]
         _     <- repository.save(lobby)
-      } yield (lobbyName, LobbyState(lobby = lobby.dto))
+      } yield (lobbyName, LobbyState(lobby = lobby))
 
     def joinLobby(lobbyName: LobbyName, user: User, buyIn: Token): F[(LobbyName, LobbyOutputMessage)] = for {
       lobby <- repository.get(lobbyName)
       lobby <- lobby.joinPlayer(user, buyIn).liftTo[F]
       _     <- repository.save(lobby)
-    } yield (lobbyName, LobbyState(lobby = lobby.dto))
+    } yield (lobbyName, LobbyState(lobby = lobby))
 
     def leaveLobby(lobbyName: LobbyName, user: User): F[(LobbyName, LobbyOutputMessage)] = for {
       lobby <- repository.get(lobbyName)
       lobby <- lobby.leavePlayer(user).liftTo[F]
       _     <- repository.save(lobby)
-    } yield (lobbyName, LobbyState(lobby = lobby.dto))
+    } yield (lobbyName, LobbyState(lobby = lobby))
   }
 }

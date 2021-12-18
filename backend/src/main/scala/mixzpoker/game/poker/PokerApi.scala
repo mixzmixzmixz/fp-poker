@@ -11,18 +11,18 @@ import org.http4s.circe._
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.server.websocket.WebSocketBuilder
-import io.circe.syntax.EncoderOps
+import io.circe.syntax._
 import io.circe.parser.decode
+import mixzpoker.domain.auth.AuthError
 import tofu.logging.Logging
 import tofu.syntax.logging._
-import mixzpoker.auth.AuthError
 import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
-import mixzpoker.user.User
-import mixzpoker.domain.game.{GameEventId, GameId}
+import mixzpoker.domain.game.{GameError, GameEventId, GameId}
 import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage}
 import mixzpoker.domain.game.poker.PokerEvent.PokerPlayerEvent
-import mixzpoker.game.GameError
+import mixzpoker.domain.user.User
 import mixzpoker.lobby.LobbyRepository
+import mixzpoker.domain.lobby.Lobby._
 
 import java.util.UUID
 
@@ -53,6 +53,8 @@ class PokerApi[F[_]: Sync: Logging](
     def processInput(queue: Queue[F, PokerEventContext], userRef: Ref[F, Option[User]])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
+      //todo as resource
+
       def processStreamInput(stream: Stream[F, String], user: User): Stream[F, PokerEventContext] =
         stream.map { text =>
           decode[PokerPlayerEvent](text).leftMap(_.toString)
@@ -70,7 +72,9 @@ class PokerApi[F[_]: Sync: Logging](
       wsfStream.collect {
         case Text(text, _) => text.trim
 //        case Close(_)      => "disconnected" //todo process disconnects
-      }.pull.uncons1.flatMap {
+      }
+        // todo use .mapAccumulate /evalMapACc
+        .pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, PokerEventContext, Unit]
         case Some((token, stream)) =>
           Pull
@@ -109,7 +113,7 @@ class PokerApi[F[_]: Sync: Logging](
         }.collect {
           case Right(msg) => msg
         }.map {
-          case ChatInputMessage.ChatMessage(message) => ChatOutputMessage.ChatMessageFrom(message, user.dto)
+          case ChatInputMessage.ChatMessage(message) => ChatOutputMessage.ChatMessageFrom(message, user)
         }
 
       wsfStream.collect {
@@ -141,8 +145,8 @@ class PokerApi[F[_]: Sync: Logging](
     for {
       _       <- info"Get Poker Games"
       lobbies <- lobbyRepository.listWithGameStarted
-      _       <- info"Get lobbies: ${lobbies.map(_.dto).asJson.spaces2}"
-      resp    <- Ok(lobbies.map(_.dto).asJson)
+      _       <- info"Get lobbies: ${lobbies.asJson.spaces2}"
+      resp    <- Ok(lobbies.asJson)
     } yield resp
   }
 }

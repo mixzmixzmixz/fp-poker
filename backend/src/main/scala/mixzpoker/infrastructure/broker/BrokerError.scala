@@ -1,6 +1,6 @@
 package mixzpoker.infrastructure.broker
 
-import mixzpoker.AppError
+import mixzpoker.domain.AppError
 
 sealed trait BrokerError extends AppError
 

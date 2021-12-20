@@ -2,7 +2,6 @@ package mixzpoker.domain.user
 
 import io.circe.{Decoder, Encoder}
 
-import scala.util.Random
 
 final case class UserId(value: Int) extends AnyVal {
   override def toString: String = value.toString
@@ -10,7 +9,7 @@ final case class UserId(value: Int) extends AnyVal {
 
 object UserId {
   //todo creation as effect
-  def fromRandom: UserId = UserId(Random.nextInt(100000) + 1)
+  def fromInt(int: Int): UserId = UserId(int)
 
   def fromString(str: String): Option[UserId] =
     str.toIntOption.map(UserId(_))

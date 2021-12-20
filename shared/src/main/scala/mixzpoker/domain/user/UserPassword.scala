@@ -13,7 +13,7 @@ object UserPassword {
 
 
   implicit val encoderUserId: Encoder[UserPassword] =
-    Encoder[String].contramap(a => a.toString)
+    Encoder[String].contramap(_.toString)
 
   implicit val decoderUserId: Decoder[UserPassword] =
     Decoder[String].emap(s => Right(UserPassword.fromString(s))) // todo check for correct pw

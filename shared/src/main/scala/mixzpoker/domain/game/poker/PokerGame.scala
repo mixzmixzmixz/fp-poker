@@ -49,7 +49,7 @@ final case class PokerGame(
 
   def dealCards(): PokerGame = {
     val (newDeck, plsWithCards) = players.values.foldLeft((deck, List.empty[PokerPlayer])) { case ((d, pls), p) =>
-      val (cards, newDeck) = d.getRandomCards(2).get //should be ok in poker game
+      val (cards, newDeck) = deck.getFirstNCards(2).get //should be ok in poker game
       (newDeck, p.copy(hand = p.hand.addCards(cards))::pls)
     }
     copy(deck = newDeck, players = plsWithCards.map(p => (p.userId, p)).toMap)
@@ -96,7 +96,7 @@ final case class PokerGame(
   }
 
   def flop(): PokerGame = {
-    val (cards, newDeck) = deck.getRandomCards(3).get // todo process option here
+    val (cards, newDeck) = deck.getFirstNCards(3).get // todo process option here
     copy(
       board = board ::: cards,
       deck = newDeck,
@@ -107,9 +107,9 @@ final case class PokerGame(
   }
 
   def turn(): PokerGame = {
-    val (card, newDeck) = deck.getRandomCard.get
+    val (cards, newDeck) = deck.getFirstNCards().get
     copy(
-      board = board ::: List(card),
+      board = board ::: cards,
       deck = newDeck,
       playerToActSeat = nthAfter(1),
       state = Turn,
@@ -118,9 +118,9 @@ final case class PokerGame(
   }
 
   def river(): PokerGame = {
-    val (card, newDeck) = deck.getRandomCard.get
+    val (cards, newDeck) = deck.getFirstNCards().get
     copy(
-      board = board ::: List(card),
+      board = board ::: cards,
       deck = newDeck,
       playerToActSeat = nthAfter(1),
       state = River,
@@ -145,13 +145,13 @@ final case class PokerGame(
     copy(winners = winners, showdown = maybeShowdown, state = RoundEnd)
   }
 
-  def nextRound(): PokerGame =
+  def nextRound(shuffledDeck: Deck): PokerGame =
     copy(
       dealerSeat = nthAfter(1),
       playerToActSeat = nthAfter(2),
       board = List.empty,
       state = RoundStart,
-      deck = Deck.of52,
+      deck = shuffledDeck,
       pot = Pot.empty(minBet = settings.bigBlind, playerIds = players.keys.toList),
       players = players.view.mapValues(_.copy(hand = Hand.empty, state = PokerPlayerState.Joined)).toMap,
       winners = List.empty,

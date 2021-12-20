@@ -2,14 +2,18 @@ package mixzpoker.game.poker
 
 import cats.effect.{Concurrent, Timer}
 import cats.effect.concurrent.Ref
+import cats.effect.syntax.all._
 import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
+import tofu.generate.GenUUID
 import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import scala.concurrent.duration._
+import scala.util.Random
 import mixzpoker.domain.{AppError, Token}
 import mixzpoker.domain.chat.ChatOutputMessage
+import mixzpoker.domain.game.core.Deck
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
 import mixzpoker.domain.game.poker.PokerGameState._
@@ -18,8 +22,6 @@ import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.domain.lobby.Player
 import mixzpoker.domain.user.{UserId, UserName}
 import mixzpoker.domain.game.poker.PokerError._
-
-import java.util.UUID
 
 
 // controls getGame's flow, player's timeouts and so
@@ -32,7 +34,7 @@ trait PokerGameManager[F[_]] {
 }
 
 object PokerGameManager {
-  def create[F[_]: Concurrent: Logging: Timer](
+  def create[F[_]: Concurrent: Logging: Timer: GenUUID](
     gameId: GameId, settings: PokerSettings, players: List[Player], queue: Queue[F, PokerEventContext]
   ): F[PokerGameManager[F]] =
     for {
@@ -59,7 +61,7 @@ object PokerGameManager {
                     case (event: PokerGameEvent, None)        => processGameEvent(game, event)
                     case (event: PokerPlayerEvent, Some(uid)) => for {
                       game <- processPlayerEvent(game, event, uid)
-                      eid  <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+                      eid  <- GenUUID[F].randomUUID.map(GameEventId.fromUUID)
                       _    <- if (game.isRoundFinished)
                                 queue.enqueue1(PokerEventContext(eid, ec.gameId, None, NextState(game.nextState)))
                               else
@@ -103,7 +105,8 @@ object PokerGameManager {
             for {
               _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
               _ <- Timer[F].sleep(5.seconds)
-              g <- roundStarts(game).liftTo[F]
+              shuffledDeck <- Concurrent[F].delay { Random.shuffle(Deck.cards52) }.map(Deck.ofCards52)
+              g <- roundStarts(game, shuffledDeck).liftTo[F]
               _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round has begun"))
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
@@ -128,7 +131,7 @@ object PokerGameManager {
                               s"${p.name} -> $m"
                             }.mkString(", ")
               _   <- _topic.publish1(LogMessage(s"Winners: $winnersStr"))
-              eid <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+              eid <- GenUUID[F].randomUUID.map(GameEventId.fromUUID)
               _   <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
             } yield g
 
@@ -215,8 +218,8 @@ object PokerGameManager {
         pot =  game.pot.makeBet(player.userId, blind)
       } yield game.updatePlayer(p).nextToAct(pot)
 
-      def roundStarts(_game: PokerGame): Either[PokerError, PokerGame] = {
-        val game = _game.nextRound()
+      def roundStarts(_game: PokerGame, shuffledDeck: Deck): Either[PokerError, PokerGame] = {
+        val game = _game.nextRound(shuffledDeck)
         for {
           sbPlayer <- game.playerBySeat(game.smallBlindSeat).toRight(NoSuchPlayer)
           game     <- betBlind(game, sbPlayer, Math.min(sbPlayer.tokens, game.settings.smallBlind))

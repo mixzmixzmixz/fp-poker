@@ -4,10 +4,10 @@ import cats.effect.{ConcurrentEffect, Timer}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
+import tofu.generate.GenUUID
 import tofu.logging.Logging
 import tofu.syntax.logging._
 
-import java.util.UUID
 import mixzpoker.game.GameRecord
 import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.GameError._
@@ -63,14 +63,14 @@ object PokerService {
       .flatMap(_.getGame)
 
     override def createGame(lobby: Lobby): F[GameId] = for {
-      gameId <- { UUID.randomUUID() }.pure[F].map(GameId.fromUUID)
+      gameId <- GenUUID[F].randomUUID.map(GameId.fromUUID)
       gm     <- lobby.gameSettings match {
                   case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, _queue)
                   case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
                 }
       _      <- pokerManagers.update { _.updated(gameId, gm) }
       _      <- gameRecords.update { _.updated(gameId, GameRecord(gameId, lobby.name)) }
-      eid    <- { UUID.randomUUID() }.pure[F].map(GameEventId.fromUUID)
+      eid    <- GenUUID[F].randomUUID.map(GameEventId.fromUUID)
       _      <- queue.enqueue1(PokerEventContext(eid, gameId, None, PokerEvent.NextState(PokerGameState.RoundStart)))
       _      <- info"Created Poker Game(id=${gameId.toString})!"
     } yield gameId

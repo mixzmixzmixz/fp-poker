@@ -13,9 +13,11 @@ import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.server.websocket.WebSocketBuilder
 import io.circe.syntax._
 import io.circe.parser.decode
-import mixzpoker.domain.auth.AuthError
+import tofu.generate.GenUUID
 import tofu.logging.Logging
 import tofu.syntax.logging._
+
+import mixzpoker.auth.AuthService
 import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
 import mixzpoker.domain.game.{GameError, GameEventId, GameId}
 import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage}
@@ -24,14 +26,13 @@ import mixzpoker.domain.user.User
 import mixzpoker.lobby.LobbyRepository
 import mixzpoker.domain.lobby.Lobby._
 
-import java.util.UUID
 
 //todo pokerApp is going to be separate service with its own http api
 // todo check user rights
-class PokerApi[F[_]: Sync: Logging](
+class PokerApi[F[_]: Sync: Logging: GenUUID](
   pokerService: PokerService[F],
   lobbyRepository: LobbyRepository[F],
-  getAuthUser: String => F[Either[AuthError, User]]
+  authService: AuthService[F]
 ) {
   val dsl = new Http4sDsl[F]{}
   import dsl._
@@ -64,7 +65,7 @@ class PokerApi[F[_]: Sync: Logging](
         }.collect {
           case Right(msg) => msg
         }.evalMap { e =>
-          { UUID.randomUUID() }.pure[F].map(uuid =>
+          GenUUID[F].randomUUID.map(uuid =>
             PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, Some(user.id), e)
           )
         }
@@ -77,11 +78,16 @@ class PokerApi[F[_]: Sync: Logging](
         .pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, PokerEventContext, Unit]
         case Some((token, stream)) =>
-          Pull
-            .eval(getAuthUser(token)
-            .flatMap(eu => userRef.update(_ => eu.toOption) *> eu.pure[F])
-            .map { _.fold(_ => Pull.done, user => processStreamInput(stream, user).pull.echo)
-            }).flatten
+          Pull.eval(
+              authService
+                .getAuthUser(token)
+                .flatTap(mbUser => userRef.update(_ => mbUser))
+                .map {
+                  _.fold(Pull.done: Pull[F, PokerEventContext, Unit]) { user =>
+                    processStreamInput(stream, user).pull.echo
+                  }
+                }
+            ).flatten
       }.stream.through(queue.enqueue)
     }
 
@@ -121,10 +127,17 @@ class PokerApi[F[_]: Sync: Logging](
 //        case Close(_)      => "disconnected"
       }.pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, ChatOutputMessage, Unit]
-        case Some((token, stream)) => Pull.eval(getAuthUser(token).map {_.fold(
-                                        err => Pull.done,
-                                        user => processStreamInput(stream, user).pull.echo
-                                      )}).flatten
+        case Some((token, stream)) =>
+          Pull
+            .eval(
+              authService
+                .getAuthUser(token)
+                .map {
+                  _.fold(Pull.done: Pull[F, ChatOutputMessage, Unit]) { user =>
+                    processStreamInput(stream, user).pull.echo
+                  }
+                }
+            ).flatten
       }.stream.through(topic.publish)
     }
 

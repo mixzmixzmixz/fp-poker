@@ -6,7 +6,6 @@ import fs2.{Pull, Stream}
 import fs2.concurrent.{Queue, Topic}
 import io.circe.parser.decode
 import io.circe.syntax._
-import mixzpoker.domain.auth.AuthError
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
@@ -15,6 +14,8 @@ import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{AuthedRoutes, HttpRoutes, Request, Response}
 import tofu.logging.Logging
 import tofu.syntax.logging._
+
+import mixzpoker.auth.AuthService
 import mixzpoker.domain.chat.{ChatInputMessage, ChatOutputMessage}
 import mixzpoker.domain.game.GameError
 import mixzpoker.domain.lobby.{LobbyError, LobbyInputMessage, LobbyName, LobbyOutputMessage, LobbyRequest}
@@ -25,7 +26,7 @@ import mixzpoker.domain.user.User
 class LobbyApi[F[_]: Sync: Logging](
   lobbyService: LobbyService[F],
   lobbyRepository: LobbyRepository[F],
-  getAuthUser: String => F[Either[AuthError, User]]
+  authService: AuthService[F]
 ) {
   val dsl: Http4sDsl[F] = new Http4sDsl[F]{}
   import dsl._
@@ -64,13 +65,16 @@ class LobbyApi[F[_]: Sync: Logging](
         case Close(_)      => "disconnected"
       }.pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, LobbyMessageContext, Unit]
-        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
-          err =>
-            topic.publish1((name, LobbyOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}")))
-              *> (Pull.done: Pull[F, LobbyMessageContext, Unit]).pure[F],
-          user =>
-            (processStreamInput(stream, user).pull.echo: Pull[F, LobbyMessageContext, Unit]).pure[F]
-        )}).flatten
+        case Some((token, stream)) =>
+          Pull.eval(
+            authService
+              .getAuthUser(token)
+              .map {
+                _.fold(Pull.done: Pull[F, LobbyMessageContext, Unit]) { user =>
+                  processStreamInput(stream, user).pull.echo: Pull[F, LobbyMessageContext, Unit]
+                }
+              }
+          ).flatten
       }.stream
 
       (Stream.emits(Seq()) ++ parsedWebSocketInput).through(queue.enqueue)
@@ -112,13 +116,16 @@ class LobbyApi[F[_]: Sync: Logging](
         case Close(_)      => "disconnected"
       }.pull.uncons1.flatMap {
         case None                  => Pull.done: Pull[F, (LobbyName, ChatOutputMessage), Unit]
-        case Some((token, stream)) => Pull.eval(getAuthUser(token).flatMap {_.fold(
-          err =>
-            topic.publish1((name, ChatOutputMessage.ErrorMessage(s"unauthorized: ${err.toString}")))
-              *> (Pull.done: Pull[F, (LobbyName, ChatOutputMessage), Unit]).pure[F],
-          user =>
-            (processStreamInput(stream, user).pull.echo: Pull[F, (LobbyName, ChatOutputMessage), Unit]).pure[F]
-        )}).flatten
+        case Some((token, stream)) =>
+          Pull.eval(
+            authService
+              .getAuthUser(token)
+              .map {
+                _.fold(Pull.done: Pull[F, (LobbyName, ChatOutputMessage), Unit]) { user =>
+                  processStreamInput(stream, user).pull.echo: Pull[F, (LobbyName, ChatOutputMessage), Unit]
+                }
+              }
+          ).flatten
       }.stream
 
       (Stream.emits(Seq()) ++ parsedWebSocketInput).through(topic.publish)

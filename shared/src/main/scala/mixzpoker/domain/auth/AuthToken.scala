@@ -8,11 +8,11 @@ final case class AuthToken(value: String) extends AnyVal {
 }
 
 object AuthToken {
-  def fromString(str: String): Either[AuthError, AuthToken] =
-    Right(AuthToken(str))
+  def fromString(str: String): AuthToken =
+    AuthToken(str)
 
-  def fromRandom: AuthToken = {
-    val b64RandomStr = Base64.getEncoder.encodeToString(UUID.randomUUID().toString.getBytes(StandardCharsets.UTF_8))
+  def fromUUID(uuid: UUID): AuthToken = {
+    val b64RandomStr = Base64.getEncoder.encodeToString(uuid.toString.getBytes(StandardCharsets.UTF_8))
     AuthToken(b64RandomStr)
   }
 }

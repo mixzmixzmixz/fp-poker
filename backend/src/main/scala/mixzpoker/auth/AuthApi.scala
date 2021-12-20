@@ -9,39 +9,28 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.circe._
 import org.http4s.util.CaseInsensitiveString
 import io.circe.syntax._
+import tofu.generate.GenUUID
 import tofu.logging.Logging
 import tofu.syntax.logging._
 
-import mixzpoker.user.UserRepository
-import mixzpoker.domain.user.{User, UserName}
-import mixzpoker.domain.auth.AuthError._
-import mixzpoker.domain.auth.{AuthError, AuthToken}
-import mixzpoker.domain.auth.AuthRequest
+import mixzpoker.domain.user.User
+import mixzpoker.domain.auth.{AuthRequest, AuthToken}
 
 
-class AuthApi[F[_]: Concurrent: Logging](
-  authUserRepository: AuthUserRepository[F],
-  userRepository: UserRepository[F]
-) {
+class AuthApi[F[_]: Concurrent: Logging: GenUUID](authService: AuthService[F]) {
   val dsl = new Http4sDsl[F]{}
   import dsl._
 
-  def getAuthUser(token: String): F[Either[AuthError, User]] =
-    AuthToken.fromString(token).liftTo[F].flatMap { at =>
-      authUserRepository
-        .getUserName(at)
-        .flatMap(userRepository.get)
-        .map(_.asRight[AuthError])
-    }.recover { case ae: AuthError => ae.asLeft[User] }
-
-  val authUser: Kleisli[F, Request[F], Either[AuthError, User]] = Kleisli({ request =>
-     (for {
-      header    <- request.headers.get(CaseInsensitiveString("Authorization")).toRight(NoAuthorizationHeader).liftTo[F]
-      user      <- getAuthUser(header.value)
-    } yield user).recover { case ae: AuthError => ae.asLeft[User] }
+  val authUser: Kleisli[F, Request[F], Either[String, User]] = Kleisli({ request =>
+    request
+      .headers
+      .get(CaseInsensitiveString("Authorization"))
+      .fold( "no such user".asLeft[User].pure[F] ) { h =>
+        authService.getAuthUser(h.value).map(_.toRight("no such user"))
+      }
   })
 
-  val onFailure: AuthedRoutes[AuthError, F] = Kleisli(req => OptionT.liftF(Forbidden()))
+  val onFailure: AuthedRoutes[String, F] = Kleisli(_ => OptionT.liftF(Forbidden()))
 
   val middleware: AuthMiddleware[F, User] = AuthMiddleware(authUser, onFailure)
 
@@ -57,32 +46,29 @@ class AuthApi[F[_]: Concurrent: Logging](
     case       GET  -> Root / "auth" / "me"       as user => Ok(user.asJson)
   }
 
-  private def signIn(request: Request[F]): F[Response[F]] = for {
-    _         <- info"SignIN request"
-    req       <- request.decodeJson[AuthRequest.SignInRequest]
-    _         <- info"SignIN request ${req.toString}"
-    user      <- userRepository.get(UserName(req.userName))
-    _         <- user.checkPassword(req.password).liftTo[F]
-    authToken = AuthToken.fromRandom
-    _         <- authUserRepository.addToken(authToken, user.name)
-    resp      <- Ok("OK", Header("Authorization", authToken.toString))
-  } yield resp
+  private def signIn(request: Request[F]): F[Response[F]] =
+    request.decodeJson[AuthRequest.SignInRequest].flatMap { req =>
+      authService.signIn(req.userName, req.password).flatMap {
+        _.fold(
+          err => warn"SignIn: ${err.toString}" *> Forbidden(s"reason: ${err.toString}"), //todo structured error message
+          token => Ok("OK", Header("Authorization", token.toString))
+        )
+      }
+    }
 
-  private def signOut(req: Request[F], user: User): F[Response[F]] = for {
-    header    <- req.headers.get(CaseInsensitiveString("Authorization")).toRight(NoAuthorizationHeader).liftTo[F]
-    authToken <- AuthToken.fromString(header.value).liftTo[F]
-    _         <- authUserRepository.deleteToken(authToken)
-    resp      <- Ok()
-  } yield resp
+  private def signOut(req: Request[F], user: User): F[Response[F]] =
+    req.headers.get(CaseInsensitiveString("Authorization")).fold(Ok()) { header =>
+      authService.signOut(user.name, AuthToken.fromString(header.value)) *> Ok()
+    }
 
-  private def signUp(request: Request[F]): F[Response[F]] = for {
-    req       <- request.decodeJson[AuthRequest.RegisterUserRequest]
-    user      <- User.create(req.userName, req.password).liftTo[F]
-    _         <- userRepository.checkUserAlreadyExist(user.name)
-    _         <- userRepository.save(user)
-    authToken = AuthToken.fromRandom
-    _         <- authUserRepository.addToken(authToken, user.name)
-    resp      <- Ok("OK", Header("Authorization", authToken.toString))
-  } yield resp
+  private def signUp(request: Request[F]): F[Response[F]] =
+    request.decodeJson[AuthRequest.RegisterUserRequest].flatMap { req =>
+      authService.signUp(req.userName, req.password).flatMap {
+        _.fold(
+          err => warn"SignUp: ${err.toString}" *> Forbidden(s"reason: ${err.toString}"), //todo structured error message
+          token => Ok("OK", Header("Authorization", token.toString))
+        )
+      }
+    }
 }
 

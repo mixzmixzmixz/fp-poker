@@ -9,5 +9,9 @@ object AuthError {
   final case object NoAuthorizationHeader extends AuthError
   final case object InvalidToken extends AuthError
   final case object NoSuchToken extends AuthError
-  final case class UserErrorWrapper(userError: UserError) extends AuthError
+
+  final case object NoSuchUser extends AuthError
+  final case object UserAlreadyExist extends AuthError
+  final case object WrongPassword extends AuthError
+  final case class SignUpError(error: UserError) extends AuthError
 }

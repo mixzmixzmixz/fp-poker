@@ -1,6 +1,8 @@
 package mixzpoker.domain
 
-trait AppError extends Exception
+import scala.util.control.NoStackTrace
+
+trait AppError extends NoStackTrace
 
 object AppError {
   type ErrOr[A] = Either[AppError, A]

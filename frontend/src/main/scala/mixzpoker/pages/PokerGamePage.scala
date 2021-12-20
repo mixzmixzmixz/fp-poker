@@ -34,6 +34,7 @@ object PokerGamePage {
         s"${Config.wsRootEndpoint}/poker/$gameId/chat/ws",
         "poker-chat-area"
       )
+      val gameStateAnnounce = Var[String]("")
 
       def processServerMessages(message: PokerOutputMessage): Unit = {
         message match {
@@ -245,6 +246,10 @@ object PokerGamePage {
         ),
         div(
           cls("poker-game-right"),
+          div(
+            cls("poker-game-announcement"),
+            child.text <-- gameStateAnnounce.signal
+          ),
           chatArea
         )
 

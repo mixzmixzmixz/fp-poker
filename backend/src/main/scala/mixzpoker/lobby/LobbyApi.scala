@@ -2,7 +2,7 @@ package mixzpoker.lobby
 
 import cats.effect.Sync
 import cats.implicits._
-import fs2.{Pull, Stream}
+import fs2.Stream
 import fs2.concurrent.{Queue, Topic}
 import io.circe.parser.decode
 import io.circe.syntax._
@@ -47,37 +47,24 @@ class LobbyApi[F[_]: Sync: Logging](
   }
 
   private def lobbyWS(name: LobbyName): F[Response[F]] = {
-    def processInput(queue: Queue[F, LobbyMessageContext], topic: Topic[F, (LobbyName, LobbyOutputMessage)])
-      (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
-
-      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, LobbyMessageContext] =
-        stream.map { text =>
-          decode[LobbyInputMessage](text).leftMap(_.toString)
-        }.evalMap {
-          case Left(err)   => info"$err".as(err.asLeft[LobbyInputMessage])
-          case Right(msg)  => info"Event: Lobby=${name.value}, message=${msg.toString}".as(msg.asRight[String])
-        }.collect {
-          case Right(msg)  => LobbyMessageContext(user, name, msg)
-        }
-
-      val parsedWebSocketInput: Stream[F, LobbyMessageContext] = wsfStream.collect {
+    def processInput(queue: Queue[F, LobbyMessageContext])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
+      wsfStream.collect {
         case Text(text, _) => text.trim
         case Close(_)      => "disconnected"
-      }.pull.uncons1.flatMap {
-        case None                  => Pull.done: Pull[F, LobbyMessageContext, Unit]
-        case Some((token, stream)) =>
-          Pull.eval(
-            authService
-              .getAuthUser(token)
-              .map {
-                _.fold(Pull.done: Pull[F, LobbyMessageContext, Unit]) { user =>
-                  processStreamInput(stream, user).pull.echo: Pull[F, LobbyMessageContext, Unit]
-                }
-              }
-          ).flatten
-      }.stream
-
-      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(queue.enqueue)
+      }.evalMapAccumulate(none[User]) {
+        case (Some(user), text)  => (user.some, text).pure[F]
+        case (None, token) =>
+          authService
+            .getAuthUser(token)
+            .map(_.fold((none[User], token)) { user => (user.some, token) })
+      }.collect {
+        case (Some(user), text) => (user, decode[LobbyInputMessage](text).leftMap(_.toString))
+      }.evalTap {
+        case (user, Left(err))  => error"$err"
+        case (user, Right(msg)) => info"Event: Lobby=${name.value}, message=${msg.toString}"
+      }.collect {
+        case (user, Right(msg)) => LobbyMessageContext(user, name, msg)
+      }.through(queue.enqueue)
     }
 
     for {
@@ -87,7 +74,7 @@ class LobbyApi[F[_]: Sync: Logging](
                     .subscribe(1000)
                     .collect { case (lobbyName, message) if name.value == lobbyName.value => message }
                     .map(msg => Text(msg.asJson.noSpaces))
-      ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue, lobbyService.topic))
+      ws        <- WebSocketBuilder[F].build(toClient, processInput(lobbyService.queue))
     } yield ws
   }.recoverWith {
     case LobbyError.NoSuchLobby => NotFound()
@@ -98,37 +85,23 @@ class LobbyApi[F[_]: Sync: Logging](
     def processInput(topic: Topic[F, (LobbyName, ChatOutputMessage)])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
-      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, (LobbyName, ChatOutputMessage)] =
-        stream.map { text =>
-          decode[ChatInputMessage](text).leftMap(_.toString)
-        }.evalTap {
-          case Left(err)  => error"$err"
-          case Right(msg) => info"ChatMsg: name=${name.toString}, message=${msg.toString}"
-        }.collect {
-          case Right(msg) => msg
-        }.map {
-          case ChatInputMessage.ChatMessage(message) => (name, ChatOutputMessage.ChatMessageFrom(message, user))
-        }
-
-      //todo simplify. all the messages go through the pipe
-      val parsedWebSocketInput: Stream[F, (LobbyName, ChatOutputMessage)] = wsfStream.collect {
+      wsfStream.collect {
         case Text(text, _) => text.trim
         case Close(_)      => "disconnected"
-      }.pull.uncons1.flatMap {
-        case None                  => Pull.done: Pull[F, (LobbyName, ChatOutputMessage), Unit]
-        case Some((token, stream)) =>
-          Pull.eval(
-            authService
-              .getAuthUser(token)
-              .map {
-                _.fold(Pull.done: Pull[F, (LobbyName, ChatOutputMessage), Unit]) { user =>
-                  processStreamInput(stream, user).pull.echo: Pull[F, (LobbyName, ChatOutputMessage), Unit]
-                }
-              }
-          ).flatten
-      }.stream
-
-      (Stream.emits(Seq()) ++ parsedWebSocketInput).through(topic.publish)
+      }.evalMapAccumulate(none[User]) {
+        case (Some(user), text)  => (user.some, text).pure[F]
+        case (None, token) =>
+          authService
+            .getAuthUser(token)
+            .map(_.fold((none[User], token)) { user => (user.some, token) })
+      }.collect {
+        case (Some(user), text) => (user, decode[ChatInputMessage](text).leftMap(_.toString))
+      }.evalTap {
+        case (user, Left(err))  => error"$err"
+        case (user, Right(msg)) => info"ChatMsg: name=${name.toString}, message=${msg.toString}"
+      }.collect {
+        case (user, Right(ChatInputMessage.ChatMessage(msg))) => (name, ChatOutputMessage.ChatMessageFrom(msg, user))
+      }.through(topic.publish)
     }
 
     for {

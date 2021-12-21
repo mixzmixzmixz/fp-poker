@@ -51,44 +51,35 @@ class PokerApi[F[_]: Sync: Logging: GenUUID](
   }
 
   private def pokerWS(gameId: GameId): F[Response[F]] = {
+    //todo as resource
     def processInput(queue: Queue[F, PokerEventContext], userRef: Ref[F, Option[User]])
       (wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
 
-      //todo as resource
-
-      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, PokerEventContext] =
-        stream.map { text =>
-          decode[PokerPlayerEvent](text).leftMap(_.toString)
-        }.evalTap {
-          case Left(err)  => error"$err"
-          case Right(msg) => info"Event: GameId=${gameId.toString}, message=${msg.toString}"
-        }.collect {
-          case Right(msg) => msg
-        }.evalMap { e =>
-          GenUUID[F].randomUUID.map(uuid =>
-            PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, Some(user.id), e)
-          )
-        }
-
       wsfStream.collect {
         case Text(text, _) => text.trim
-//        case Close(_)      => "disconnected" //todo process disconnects
-      }
-        // todo use .mapAccumulate /evalMapACc
-        .pull.uncons1.flatMap {
-        case None                  => Pull.done: Pull[F, PokerEventContext, Unit]
-        case Some((token, stream)) =>
-          Pull.eval(
-              authService
-                .getAuthUser(token)
-                .flatTap(mbUser => userRef.update(_ => mbUser))
-                .map {
-                  _.fold(Pull.done: Pull[F, PokerEventContext, Unit]) { user =>
-                    processStreamInput(stream, user).pull.echo
-                  }
-                }
-            ).flatten
-      }.stream.through(queue.enqueue)
+        case Close(_)      => "disconnected" //todo process disconnects
+      }.evalMapAccumulate(none[User]) {
+        case (Some(user), text)  => (user.some, text).pure[F]
+        case (None, token) =>
+          authService
+            .getAuthUser(token)
+            .map {
+              _.fold((none[User], token)) { user => (user.some, token) }
+            }.flatTap {
+              case (maybeUser, _) => userRef.update(_ => maybeUser)
+            }
+      }.collect {
+        case (Some(user), text) => (user, decode[PokerPlayerEvent](text).leftMap(_.toString))
+      }.evalTap {
+        case (user, Left(err))  => error"$err"
+        case (user, Right(msg)) => info"Event: GameId=${gameId.toString}, message=${msg.toString}"
+      }.collect {
+        case (user, Right(event)) => (user, event)
+      }.evalMap { case (user, event) =>
+        GenUUID[F].randomUUID.map(uuid =>
+          PokerEventContext(id = GameEventId.fromUUID(uuid), gameId, user.id.some, event)
+        )
+      }.through(queue.enqueue)
     }
 
     for {
@@ -108,38 +99,25 @@ class PokerApi[F[_]: Sync: Logging: GenUUID](
   }
 
   private def chatWS(gameId: GameId): F[Response[F]] = {
-    def processInput(topic: Topic[F, ChatOutputMessage])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] = {
-
-      def processStreamInput(stream: Stream[F, String], user: User): Stream[F, ChatOutputMessage] =
-        stream.map { text =>
-          decode[ChatInputMessage](text).leftMap(_.toString)
-        }.evalTap {
-          case Left(err)  => error"$err"
-          case Right(msg) => info"ChatMsg: GameId=${gameId.toString}, message=${msg.toString}"
-        }.collect {
-          case Right(msg) => msg
-        }.map {
-          case ChatInputMessage.ChatMessage(message) => ChatOutputMessage.ChatMessageFrom(message, user)
-        }
-
+    def processInput(topic: Topic[F, ChatOutputMessage])(wsfStream: Stream[F, WebSocketFrame]): Stream[F, Unit] =
       wsfStream.collect {
         case Text(text, _) => text.trim
-//        case Close(_)      => "disconnected"
-      }.pull.uncons1.flatMap {
-        case None                  => Pull.done: Pull[F, ChatOutputMessage, Unit]
-        case Some((token, stream)) =>
-          Pull
-            .eval(
-              authService
-                .getAuthUser(token)
-                .map {
-                  _.fold(Pull.done: Pull[F, ChatOutputMessage, Unit]) { user =>
-                    processStreamInput(stream, user).pull.echo
-                  }
-                }
-            ).flatten
-      }.stream.through(topic.publish)
-    }
+        case Close(_)      => "disconnected"
+      }.evalMapAccumulate(none[User]) {
+        case (Some(user), text)  => (user.some, text).pure[F]
+        case (None, token) =>
+          authService
+            .getAuthUser(token)
+            .map(_.fold((none[User], token)) { user => (user.some, token) })
+      }.collect {
+        case (Some(user), text) => (user, decode[ChatInputMessage](text).leftMap(_.toString))
+      }.evalTap {
+        case (user, Left(err))  => error"$err"
+        case (user, Right(msg)) => info"ChatMsg: GameId=${gameId.toString}, message=${msg.toString}"
+      }.collect {
+        case (user, Right(ChatInputMessage.ChatMessage(msg))) => ChatOutputMessage.ChatMessageFrom(msg, user)
+      }.through(topic.publish)
+
 
     for {
       _         <- pokerService.ensureExists(gameId)

@@ -34,14 +34,10 @@ final case class Lobby(
       NoSuchUser
     )
 
-  def updatePlayerReadiness(user: User, readiness: Boolean): Either[LobbyError, Lobby] = for {
-    player <- players.find(_.user == user).toRight[LobbyError](NoSuchUser)
-  } yield copy(players = (players.toSet - player + player.copy(ready = readiness)).toList)
-
-  def startGame(gameId: GameId): Either[LobbyError, Lobby] = this.gameId match {
-    case Some(_) => Left(GameIsAlreadyStarted)
-    case None => Right(copy(gameId = Some(gameId)))
-  }
+  def updatePlayerReadiness(user: User, readiness: Boolean): Option[Lobby] =
+    players.find(_.user == user).map { player =>
+      copy(players = (players.toSet - player + player.copy(ready = readiness)).toList)
+    }
 
   def satisfiesSettings: Boolean = {
     (players.length >= gameSettings.minPlayers) &&

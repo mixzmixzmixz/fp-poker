@@ -99,8 +99,6 @@ object LobbyPage {
             },
             child.text <-- lobbyVar.signal.map { l => s"Players: ${l.players.size} / ${l.gameSettings.maxPlayers}"}
           ),
-
-
         )
       }
 

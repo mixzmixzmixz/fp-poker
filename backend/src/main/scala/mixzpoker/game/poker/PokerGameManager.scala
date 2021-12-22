@@ -105,8 +105,8 @@ object PokerGameManager {
             for {
               _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
               _ <- Timer[F].sleep(5.seconds)
-              shuffledDeck <- Concurrent[F].delay { Random.shuffle(Deck.cards52) }.map(Deck.ofCards52)
-              g <- roundStarts(game, shuffledDeck).liftTo[F]
+              d <- createShuffledDeck
+              g <- roundStarts(game, d).liftTo[F]
               _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round has begun"))
               p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
               _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
@@ -160,6 +160,9 @@ object PokerGameManager {
             } yield g
         }
       }
+
+      def createShuffledDeck: F[Deck] =
+        Concurrent[F].delay { Random.shuffle(Deck.cards52) }.map(Deck.ofCards52)
 
       def decreaseBalance(player: PokerPlayer, delta: Token): Either[PokerError, PokerPlayer] =
         Either.cond(delta <= player.tokens, player.copy(tokens = player.tokens - delta), UserDoesNotHaveEnoughTokens)

@@ -6,21 +6,18 @@ import cats.effect.concurrent.Ref
 
 import mixzpoker.domain.game.GameType
 import mixzpoker.domain.game.poker.PokerSettings
-import mixzpoker.domain.lobby.LobbyError._
 import mixzpoker.domain.lobby.{Lobby, LobbyName}
 import mixzpoker.domain.user.User
 
 
 trait LobbyRepository[F[_]] {
-  def create(name: String, owner: User, gameType: GameType): F[Unit]
+  def create(name: LobbyName, owner: User, gameType: GameType): F[Boolean]
   def list(): F[List[Lobby]]
   def listWithGameStarted: F[List[Lobby]]
-  def get(name: LobbyName): F[Lobby]
+  def get(name: LobbyName): F[Option[Lobby]]
   def save(lobby: Lobby): F[Unit]
   def delete(name: LobbyName): F[Unit]
   def exists(name: LobbyName): F[Boolean]
-  def ensureExists(name: LobbyName): F[Unit]
-  def ensureDoesNotExist(name: LobbyName): F[Unit]
 }
 
 
@@ -30,15 +27,17 @@ object LobbyRepository {
     store  <- Ref.of[F, Map[LobbyName, Lobby]](Map.empty)
   } yield new LobbyRepository[F] {
 
-    override def create(name: String, owner: User, gameType: GameType): F[Unit] = for {
-      lobbyName <- LobbyName.fromString(name).toRight(NoSuchLobby).liftTo[F] // todo eithers
-      settings  <- (gameType match {
-                    case GameType.Poker => PokerSettings.create()
-                  }).toRight(InvalidSettings).liftTo[F]
-      _         <- ensureDoesNotExist(lobbyName)
-      lobby     = Lobby(lobbyName, owner, List(), gameType, settings)
-      _         <- save(lobby)
-    } yield ()
+    override def create(name: LobbyName, owner: User, gameType: GameType): F[Boolean] = {
+      val settings = gameType match {
+        case GameType.Poker => PokerSettings.defaults
+      }
+      val lobby = Lobby(name, owner, List(), gameType, settings)
+
+      store.getAndUpdate { m =>
+        if (m.contains(name)) m
+        else m.updated(name, lobby)
+      }.map(m => !m.contains(name))
+    }
 
     override def list(): F[List[Lobby]] =
       store.get.map(_.values.toList)
@@ -46,8 +45,8 @@ object LobbyRepository {
     override def listWithGameStarted: F[List[Lobby]] =
       store.get.map(_.values.toList.filter(_.gameId.isDefined))
 
-    override def get(name: LobbyName): F[Lobby] =
-      store.get.flatMap(_.get(name).toRight(NoSuchLobby).liftTo[F])
+    override def get(name: LobbyName): F[Option[Lobby]] =
+      store.get.map(_.get(name))
 
     override def save(lobby: Lobby): F[Unit] =
       store.update { _.updated(lobby.name, lobby) }
@@ -55,14 +54,8 @@ object LobbyRepository {
     override def delete(name: LobbyName): F[Unit] =
       store.update { _ - name }
 
-    override def ensureDoesNotExist(name: LobbyName): F[Unit] =
-      store.get.flatMap { map => Either.cond(!map.contains(name), (), LobbyAlreadyExist).liftTo[F] }
-
     override def exists(name: LobbyName): F[Boolean] =
-      store.get.map(_.contains(name))
+      get(name).map(_.isDefined)
 
-    override def ensureExists(name: LobbyName): F[Unit] =
-      exists(name).flatMap(b => Either.cond(b, (), NoSuchLobby).liftTo[F])
   }
-
 }

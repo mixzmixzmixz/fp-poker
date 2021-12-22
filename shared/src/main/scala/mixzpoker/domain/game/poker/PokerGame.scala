@@ -49,7 +49,7 @@ final case class PokerGame(
 
   def dealCards(): PokerGame = {
     val (newDeck, plsWithCards) = players.values.foldLeft((deck, List.empty[PokerPlayer])) { case ((d, pls), p) =>
-      val (cards, newDeck) = deck.getFirstNCards(2).get //should be ok in poker game
+      val (cards, newDeck) = d.getFirstNCards(2).get //should be ok in poker game
       (newDeck, p.copy(hand = p.hand.addCards(cards))::pls)
     }
     copy(deck = newDeck, players = plsWithCards.map(p => (p.userId, p)).toMap)

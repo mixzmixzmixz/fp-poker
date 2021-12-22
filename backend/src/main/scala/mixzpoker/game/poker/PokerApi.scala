@@ -3,7 +3,7 @@ package mixzpoker.game.poker
 import cats.implicits._
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import fs2.{Pull, Stream}
+import fs2.Stream
 import fs2.concurrent.{Queue, Topic}
 import org.http4s.{AuthedRoutes, HttpRoutes, Response}
 import org.http4s.dsl.Http4sDsl
@@ -23,8 +23,8 @@ import mixzpoker.domain.game.{GameError, GameEventId, GameId}
 import mixzpoker.domain.game.poker.{PokerEventContext, PokerOutputMessage}
 import mixzpoker.domain.game.poker.PokerEvent.PokerPlayerEvent
 import mixzpoker.domain.user.User
-import mixzpoker.lobby.LobbyRepository
 import mixzpoker.domain.lobby.Lobby._
+import mixzpoker.lobby.LobbyRepository
 
 
 //todo pokerApp is going to be separate service with its own http api
@@ -88,7 +88,7 @@ class PokerApi[F[_]: Sync: Logging: GenUUID](
       userRef   <- Ref.of[F, Option[User]](None)
       toClient  =  topic
         .subscribe(1000).evalFilter {
-          case PokerOutputMessage.ErrorMessage(Some(id), _) => userRef.get.map(_.fold(false)(u => u.id == id))
+          case PokerOutputMessage.ErrorMessage(Some(id), _) => userRef.get.map(_.fold(false)(_.id == id))
           case _  => true.pure[F]
         }.map(msg => Text(msg.asJson.noSpaces))
       ws        <- WebSocketBuilder[F].build(toClient, processInput(pokerService.queue, userRef))
@@ -117,7 +117,6 @@ class PokerApi[F[_]: Sync: Logging: GenUUID](
       }.collect {
         case (user, Right(ChatInputMessage.ChatMessage(msg))) => ChatOutputMessage.ChatMessageFrom(msg, user)
       }.through(topic.publish)
-
 
     for {
       _         <- pokerService.ensureExists(gameId)

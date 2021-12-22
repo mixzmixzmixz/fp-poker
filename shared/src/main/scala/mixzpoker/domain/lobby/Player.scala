@@ -9,12 +9,7 @@ final case class Player(
   user: User,
   buyIn: Token,
   ready: Boolean = false
-) {
-  override def equals(obj: Any): Boolean = obj match {
-    case Player(u, _, _) => u == user
-    case _ => false
-  }
-}
+)
 
 object Player {
 

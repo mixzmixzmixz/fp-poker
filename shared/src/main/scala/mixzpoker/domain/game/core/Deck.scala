@@ -5,15 +5,17 @@ import io.circe.{Decoder, Encoder}
 
 trait Deck {
   def getFirstNCards(n: Int = 1): Option[(List[Card], Deck)]
+  def size: Int
 }
 
 object Deck {
   final case class Deck52(cards: List[Card]) extends Deck {
     override def getFirstNCards(n: Int): Option[(List[Card], Deck)] =
-      if (n < cards.size) None
+      if (n > cards.size) None
       else
         Some((cards.take(n), copy(cards = cards.drop(n))))
 
+    override def size: Int = cards.size
   }
 
   def of52: Deck = {

@@ -1,6 +1,7 @@
 package mixzpoker.game.poker
 
-import cats.effect.{ConcurrentEffect, Timer}
+import cats.effect.syntax.all._
+import cats.effect.{ConcurrentEffect, Timer, Resource}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import fs2.concurrent.{Queue, Topic}
@@ -17,7 +18,7 @@ import mixzpoker.domain.lobby.Lobby
 
 
 trait PokerService[F[_]] {
-  def run: F[Unit]
+  def runBackground: Resource[F, F[Unit]]
   def getGame(gameId: GameId): F[PokerGame]
   def createGame(lobby: Lobby): F[GameId]
   def ensureExists(gameId: GameId): F[Unit]
@@ -36,12 +37,8 @@ object PokerService {
   } yield new PokerService[F] {
     override def queue: Queue[F, PokerEventContext] = _queue
 
-    //
-    //
-
-
-    override def run: F[Unit] =
-      info"Run poker App!" *>
+    override def runBackground: Resource[F, F[Unit]] =
+//      info"Run poker App!" *>
         queue
           .dequeue
           .evalTap(e => info"Got event: ${e.toString}")
@@ -49,6 +46,7 @@ object PokerService {
           .evalTap(_ => info"Successfully proceed an event")
           .compile
           .drain
+          .background
 
     def processEvent(e: PokerEventContext): F[Unit] = for {
       pm  <- pokerManagers.get.flatMap(_.get(e.gameId).toRight[GameError](NoSuchGame).liftTo[F])

@@ -7,7 +7,7 @@ import io.circe.syntax._
 import laminar.webcomponents.material.{Button, Dialog, Icon, IconButton, Select, Textfield, List => MList}
 import mixzpoker.{App, AppContext, Config, Page}
 import mixzpoker.domain.game.GameType
-import mixzpoker.domain.lobby.Lobby
+import mixzpoker.domain.lobby.{Lobby, LobbyName}
 import mixzpoker.domain.lobby.LobbyRequest._
 import org.scalajs.dom
 import org.scalajs.dom.HTMLElement
@@ -28,11 +28,11 @@ object LobbiesPage {
           resp => resp.data
         ))
 
-    def createLobbyRequest(body: CreateLobbyRequest)(implicit appContext: Var[AppContext]): EventStream[String] =
+    def createLobbyRequest(name: LobbyName, gametype: GameType)(implicit appContext: Var[AppContext]): EventStream[String] =
       Fetch.post(
           url = s"${Config.rootEndpoint}/lobby/create",
           headers = Map("Authorization" -> appContext.now().token),
-          body = body.asJson
+          body = CreateLobbyRequest(name, gametype).asJson
         ).text.recoverToTry
         .map(_.fold(_ => "", _ => ""))
 
@@ -84,10 +84,10 @@ object LobbiesPage {
         _.`open` <-- isOpen,
         _.slots.primaryAction(Button(
           _.`label` := "Create",
-          _.`disabled` <-- lobbyName.signal.map(_.isEmpty),
+          _.`disabled` <-- lobbyName.signal.map(LobbyName.fromString).map(_.isEmpty),
           _ => inContext { thisNode =>
             thisNode.events(onClick).flatMap { _ =>
-              createLobbyRequest(CreateLobbyRequest(lobbyName.now(), GameType.Poker))
+              createLobbyRequest(LobbyName.fromString(lobbyName.now()).get, GameType.Poker) //todo fix option
             } --> { _ =>
               isOpen.set(false)
               App.router.pushState(Page.Lobby(lobbyName.now()))

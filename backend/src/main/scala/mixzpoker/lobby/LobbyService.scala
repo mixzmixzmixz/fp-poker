@@ -10,6 +10,7 @@ import tofu.syntax.logging._
 import org.http4s.websocket.WebSocketFrame.Text
 import io.circe.syntax._
 import io.circe.parser.decode
+
 import mixzpoker.chat.ChatService
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.GameType
@@ -25,7 +26,7 @@ trait LobbyService[F[_]] {
   def create(name: LobbyName, owner: User, gameType: GameType): F[Boolean]
   def runBackground: Resource[F, F[Unit]]
   def toClient(name: LobbyName): Stream[F, Text]
-  def fromClientPipe(name: LobbyName): Stream[F, (Option[User], String)] => Stream[F, Unit]
+  def fromClientPipe(name: LobbyName): Pipe[F, (Option[User], String), Unit]
   def chatPipes(name: LobbyName): F[Option[(Stream[F, Text], Pipe[F, (Option[User], String), Unit])]]
 }
 

@@ -21,7 +21,7 @@ trait AuthService[F[_]] {
   def signOut(name: UserName, token: AuthToken): F[Unit]
   def getAuthUser(token: String): F[Option[User]]
 
-  def wsAuthPipe: Pipe[F, WebSocketFrame, (Option[User], String)]
+  def wsAuthPipe(userRef: Option[Ref[F, Option[User]]] = None): Pipe[F, WebSocketFrame, (Option[User], String)]
 }
 
 object AuthService {
@@ -63,18 +63,21 @@ object AuthService {
       } yield user
     }.value
 
-    override def wsAuthPipe: Pipe[F, WebSocketFrame, (Option[User], String)] =
+    override def wsAuthPipe(userRef: Option[Ref[F, Option[User]]] = None): Pipe[F, WebSocketFrame, (Option[User], String)] =
       _.collect {
         case Text(text, _) => text.trim
         case Close(_)      => "disconnected"
       }.evalMapAccumulate(none[User]) {
         case (Some(user), text)  => (user.some, text).pure[F]
         case (None, token) =>
-          getAuthUser(token).map(
-            _.fold((none[User], token)) { user =>
-              (user.some, token)
+          getAuthUser(token)
+            .map {
+              _.fold((none[User], token)) { user =>
+                (user.some, token)
+              }
+            }.flatTap {
+              case (maybeUser, _) => userRef.traverse(_.update(_ => maybeUser))
             }
-          )
       }
   }
 }

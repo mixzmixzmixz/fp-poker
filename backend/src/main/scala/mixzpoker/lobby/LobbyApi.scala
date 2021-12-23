@@ -46,7 +46,7 @@ class LobbyApi[F[_]: Sync: Logging](
         val fromClientPipe = lobbyService.fromClientPipe(name)
         WebSocketBuilder[F].build(
           toClient,
-          _.through(authService.wsAuthPipe).through(fromClientPipe)
+          _.through(authService.wsAuthPipe()).through(fromClientPipe)
         )
     }
 
@@ -57,7 +57,7 @@ class LobbyApi[F[_]: Sync: Logging](
         case Some((toClient, fromClient)) =>
           WebSocketBuilder[F].build(
             toClient,
-            _.through(authService.wsAuthPipe).through(fromClient)
+            _.through(authService.wsAuthPipe()).through(fromClient)
           )
         case None => NotFound()
       }

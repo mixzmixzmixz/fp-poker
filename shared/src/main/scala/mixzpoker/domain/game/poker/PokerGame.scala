@@ -6,8 +6,9 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import mixzpoker.domain.Token
 import mixzpoker.domain.game.GameId
 import mixzpoker.domain.game.core.{Card, Deck, Hand}
-import mixzpoker.domain.user.{UserId, UserName}
+import mixzpoker.domain.game.poker.PokerError._
 import mixzpoker.domain.game.poker.PokerGameState._
+import mixzpoker.domain.user.{UserId, UserName}
 
 
 final case class PokerGame(
@@ -21,7 +22,7 @@ final case class PokerGame(
   state: PokerGameState,
   settings: PokerSettings,
   showdown: Option[Showdown] = None,
-  winners: List[PokerPlayer] = List.empty
+  winnersMoney: List[(PokerPlayer, Token)] = List.empty
 ) {
   def nthAfter(n: Int, seat: Int = dealerSeat): Int = {
     val playersLs = players.values.toList.sortBy(_.seat)
@@ -36,16 +37,14 @@ final case class PokerGame(
   def updatePlayer(player: PokerPlayer): PokerGame =
     copy(players = (players - player.userId).updated(player.userId, player))
 
-  def updatePlayers(updatedPlayers: List[PokerPlayer]): PokerGame =
-    copy(players = updatedPlayers.foldLeft(players) { case (map, p) =>
-      (map - p.userId).updated(p.userId, p)
-    })
-
   def firstEmptySeat: Option[Int] =
     (0 until settings.maxPlayers).filterNot(seat => players.values.map(_.seat).toSet.contains(seat)).headOption
 
   def playerBySeat(seat: Int): Option[PokerPlayer] =
     players.values.find(_.seat == seat)
+
+  def playerToAct: PokerPlayer =
+    players.values.find(_.seat == playerToActSeat).get //todo this should always be valid,
 
   def dealCards(): PokerGame = {
     val (newDeck, plsWithCards) = players.values.foldLeft((deck, List.empty[PokerPlayer])) { case ((d, pls), p) =>
@@ -64,22 +63,32 @@ final case class PokerGame(
   def toCallPlayer(player: PokerPlayer): Token =
     toCall - pot.playerBetsThisRound.getOrElse(player.userId, 0)
 
-  def canPlayerFold(player: PokerPlayer): Boolean =
-    playerToActSeat == player.seat && player.hasCards
+  def canPlayerFold(userId: UserId): Boolean =
+    players.get(userId).exists { player =>
+      playerToActSeat == player.seat && player.hasCards
+    }
 
-  def canPlayerCheck(player: PokerPlayer): Boolean =
-    playerToActSeat == player.seat && player.hasCards && doesPlayerBetEnough(player)
+  def canPlayerCheck(userId: UserId): Boolean =
+    players.get(userId).exists { player =>
+      playerToActSeat == player.seat && player.hasCards && doesPlayerBetEnough(player)
+    }
 
-  def canPlayerCall(player: PokerPlayer): Boolean =
-    playerToActSeat == player.seat && player.hasCards && !doesPlayerBetEnough(player)
+  def canPlayerCall(userId: UserId): Boolean =
+    players.get(userId).exists { player =>
+      playerToActSeat == player.seat && player.hasCards && !doesPlayerBetEnough(player)
+    }
 
-  def canPlayerRaise(player: PokerPlayer, amount: Token): Boolean = {
+  def canPlayerRaise(userId: UserId, amount: Token): Boolean = {
     // raise should be more than toCall + minBet (usually bigBlind)
-    playerToActSeat == player.seat && player.hasCards && amount >= pot.minBet + toCallPlayer(player)
+    players.get(userId).exists { player =>
+      playerToActSeat == player.seat && player.hasCards && amount >= pot.minBet + toCallPlayer(player)
+    }
   }
 
-  def canPlayerAllIn(player: PokerPlayer): Boolean =
-    playerToActSeat == player.seat && player.hasCards
+  def canPlayerAllIn(userId: UserId): Boolean =
+    players.get(userId).map { player =>
+      playerToActSeat == player.seat && player.hasCards
+    }.fold(false)(t => t)
 
   def activePlayers: List[PokerPlayer] =
     players.values.filter(_.hasCards).toList
@@ -95,54 +104,104 @@ final case class PokerGame(
     case RoundEnd   => RoundStart
   }
 
-  def flop(): PokerGame = {
-    val (cards, newDeck) = deck.getFirstNCards(3).get // todo process option here
+  def flop(card1: Card, card2: Card, card3: Card, newDeck: Deck): PokerGame =
     copy(
-      board = board ::: cards,
+      board = card1 :: card2 :: card3 :: Nil,
       deck = newDeck,
       playerToActSeat = nthAfter(1),
       state = Flop,
       pot = pot.nextState(settings.bigBlind)
     )
-  }
 
-  def turn(): PokerGame = {
-    val (cards, newDeck) = deck.getFirstNCards().get
+  def turn(card: Card, newDeck: Deck): PokerGame =
     copy(
-      board = board ::: cards,
+      board = board :+ card,
       deck = newDeck,
       playerToActSeat = nthAfter(1),
       state = Turn,
       pot = pot.nextState(settings.bigBlind)
     )
-  }
 
-  def river(): PokerGame = {
-    val (cards, newDeck) = deck.getFirstNCards().get
+  def river(card: Card, newDeck: Deck): PokerGame =
     copy(
-      board = board ::: cards,
+      board = board :+ card,
       deck = newDeck,
       playerToActSeat = nthAfter(1),
       state = River,
       pot = pot.nextState(settings.bigBlind)
     )
-  }
 
   def isRoundFinished: Boolean =
     players.values.filter(_.hasCards).filterNot(_.isAllIned).forall { p =>
       pot.playerBetsThisRound.getOrElse(p.userId, 0) == pot.betToCall
     }
 
-  def calculateWinners(): PokerGame = {
-    //todo more complext logic
-    // allins
+  def checkPlayerCanJoin(userId: UserId, buyIn: Token): Either[PokerError, Unit] = for {
+    _ <- Either.cond(!players.contains(userId), (), UserAlreadyInGame)
+    _ <- Either.cond(players.size + 1 <= settings.maxPlayers, (), TooManyPlayers)
+    _ <- Either.cond(buyIn >= settings.buyInMin, (), BuyInTooLow)
+    _ <- Either.cond(buyIn <= settings.buyInMax, (), BuyInTooHigh)
+    _ <- firstEmptySeat.toRight[PokerError](NoEmptySeat)
+  } yield ()
+
+  def playerJoin(userId: UserId, buyIn: Token, name: UserName): Option[PokerGame] =
+    firstEmptySeat.map { seat =>
+      copy(players = players.updated(userId, PokerPlayer.fromUser(userId, name, buyIn, seat)))
+    }
+
+  def playerLeave(userId: UserId): PokerGame =
+    copy(players = players - userId)
+
+  def playerFolds(userId: UserId): Option[PokerGame] =
+    players.get(userId).map { player => updatePlayer(player.fold()).nextToAct() }
+
+  def playerChecks(userId: UserId): Option[PokerGame] =
+    players.get(userId).map { player => updatePlayer(player.check()).nextToAct() }
+
+  def playerCalls(userId: UserId): Option[PokerGame] = for {
+    player <- players.get(userId)
+    amount =  toCallPlayer(player)
+    player <- player.decreaseBalance(amount).toOption
+    newPot =  pot.makeBet(userId, amount)
+  } yield updatePlayer(player.call()).nextToAct(newPot)
+
+  def playerRaises(userId: UserId, amount: Token): Option[PokerGame] = for {
+    player <- players.get(userId)
+    player <- player.decreaseBalance(amount).toOption
+    newPot =  pot.makeBet(userId, amount)
+  } yield updatePlayer(player.raise()).nextToAct(newPot)
+
+  def playerGoesAllIn(userId: UserId): Option[PokerGame] = for {
+    player <- players.get(userId)
+    player <- player.decreaseBalance(player.tokens).toOption
+    newPot =  pot.makeBet(userId, player.tokens)
+  } yield updatePlayer(player.allIn()).nextToAct(newPot)
+
+  def roundEnds(): PokerGame = {
+
+    val moneyWon = pot.playerBets.values.sum
     val (winners, maybeShowdown) = if (activePlayers.size > 1) {
       val showdown = PokerCombinationSolver.sortHands(board, activePlayers)
       (showdown.combs.head.map(_._2), Some(showdown))
     } else {
       (List(activePlayers.head), None)
     }
-    copy(winners = winners, showdown = maybeShowdown, state = RoundEnd)
+    val moneyPerWinner = moneyWon / winners.size
+    val modulo = moneyWon % winners.size // add to the first player
+    val winnersMoney = winners.zipWithIndex.map { case (p, i) =>
+      if (i == 0) (p, moneyPerWinner)
+      else (p, moneyPerWinner + modulo)
+    }
+    val updatedPlayers = winnersMoney.map { case (player, money) => player.increaseBalance(money) }
+
+    copy(
+      players = updatedPlayers.foldLeft(players) { case (map, p) =>
+        (map - p.userId).updated(p.userId, p)
+      },
+      winnersMoney = winnersMoney,
+      showdown = maybeShowdown,
+      state = RoundEnd
+    )
   }
 
   def nextRound(shuffledDeck: Deck): PokerGame =
@@ -154,7 +213,7 @@ final case class PokerGame(
       deck = shuffledDeck,
       pot = Pot.empty(minBet = settings.bigBlind, playerIds = players.keys.toList),
       players = players.view.mapValues(_.copy(hand = Hand.empty, state = PokerPlayerState.Joined)).toMap,
-      winners = List.empty,
+      winnersMoney = List.empty,
       showdown = None
     ).dealCards()
 }

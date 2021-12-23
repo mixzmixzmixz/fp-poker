@@ -16,6 +16,8 @@ object PokerError {
   final case object BuyInTooHigh extends PokerError
   final case object NoEmptySeat extends PokerError
   final case object NoSuchPlayer extends PokerError
+  final case object UserAlreadyInGame extends PokerError
+  final case object EmptyDeck extends PokerError
   final case class NoPlayerOnSeat(seat: Int) extends PokerError
   final case class NoPlayerWithUserId(userId: UserId) extends PokerError
   final case object NotEnoughTokensToCall extends PokerError

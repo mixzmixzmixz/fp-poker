@@ -4,220 +4,260 @@ import cats.effect.{Concurrent, Timer}
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.all._
 import cats.implicits._
-import fs2.concurrent.{Queue, Topic}
-import tofu.generate.GenUUID
+import fs2.Stream
+import fs2.concurrent.Topic
+import tofu.generate.{GenRandom, GenUUID}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
+import io.circe.syntax._
 import scala.concurrent.duration._
-import scala.util.Random
+import org.http4s.websocket.WebSocketFrame.Text
+
 import mixzpoker.domain.{AppError, Token}
-import mixzpoker.domain.chat.ChatOutputMessage
 import mixzpoker.domain.game.core.Deck
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
-import mixzpoker.domain.game.poker.PokerGameState._
 import mixzpoker.domain.game.poker.PokerOutputMessage._
 import mixzpoker.domain.game.{GameEventId, GameId}
 import mixzpoker.domain.lobby.Player
-import mixzpoker.domain.user.{UserId, UserName}
+import mixzpoker.domain.user.{User, UserId, UserName}
 import mixzpoker.domain.game.poker.PokerError._
+import mixzpoker.game.poker.PokerCommand._
 
 
+//todo naming! what is round ?
 // controls getGame's flow, player's timeouts and so
 trait PokerGameManager[F[_]] {
-  def getGame: F[PokerGame]
-  def topic: Topic[F, PokerOutputMessage]
-  def chatTopic: Topic[F, ChatOutputMessage]
   def id: GameId
-  def processEvent(ec: PokerEventContext): F[PokerOutputMessage]
+  def getGame: F[PokerGame]
+
+  def handleCommand(command: PokerCommand): F[Unit]
+  def publishEvent(event: PokerEvent): F[PokerGame]
+  def toClient(gameId: GameId, userRef: Ref[F, Option[User]]): Stream[F, Text]
 }
 
 object PokerGameManager {
-  def create[F[_]: Concurrent: Logging: Timer: GenUUID](
-    gameId: GameId, settings: PokerSettings, players: List[Player], queue: Queue[F, PokerEventContext]
-  ): F[PokerGameManager[F]] =
-    for {
-      gameRef    <- Ref.of[F, PokerGame](PokerGame.create(
+  type EventsMessages = (List[PokerEvent], List[PokerOutputMessage])
+
+  def create[F[_]: Concurrent: Logging: Timer: GenUUID: GenRandom](
+    gameId: GameId, settings: PokerSettings, players: List[Player]
+  ): F[PokerGameManager[F]] = {
+    val managerOf: F[PokerGameManager[F]] = for {
+      gameRef <- Ref.of[F, PokerGame](PokerGame.create(
                                         gameId, settings,
                                         players.map(p => (p.user.id, p.user.name, p.buyIn))
                                       ))
-      g          <- gameRef.get
-      _topic     <- Topic[F, PokerOutputMessage](PokerOutputMessage.GameState(g))
-      _chatTopic <- Topic[F, ChatOutputMessage](ChatOutputMessage.KeepAlive)
+      g       <- gameRef.get
+      topic   <- Topic[F, PokerOutputMessage](PokerOutputMessage.GameState(g))
     } yield new PokerGameManager[F] {
 
       val secondsForAction: Int = 30 //todo move to settings
 
       override def id: GameId = gameId
-      override def topic: Topic[F, PokerOutputMessage] = _topic
-      override def chatTopic: Topic[F, ChatOutputMessage] = _chatTopic
       override def getGame: F[PokerGame] = gameRef.get
 
-      override def processEvent(ec: PokerEventContext): F[PokerOutputMessage] = {
-        for {
-          game <- gameRef.get
-          game <- (ec.event, ec.userId) match {
-                    case (event: PokerGameEvent, None)        => processGameEvent(game, event)
-                    case (event: PokerPlayerEvent, Some(uid)) => for {
-                      game <- processPlayerEvent(game, event, uid)
-                      eid  <- GenUUID[F].randomUUID.map(GameEventId.fromUUID)
-                      _    <- if (game.isRoundFinished)
-                                queue.enqueue1(PokerEventContext(eid, ec.gameId, None, NextState(game.nextState)))
-                              else
-                                game.playerBySeat(game.playerToActSeat)
-                                  .toRight(NoSuchPlayer)
-                                  .liftTo[F]
-                                  .flatMap { p =>
-                                    _topic.publish1(PlayerToAction(p.userId, secondsForAction))
-                                  }
-                    } yield game
-                  }
+      override def toClient(gameId: GameId, userRef: Ref[F, Option[User]]): Stream[F, Text] =
+        topic
+          .subscribe(1000)
+          .evalFilter {
+            case PokerOutputMessage.ErrorMessage(Some(id), _) => userRef.get.map(_.fold(false)(_.id == id))
+            case _  => true.pure[F]
+          }.map(msg => Text(msg.asJson.noSpaces))
 
-          // todo _ <- gameRef.modify()
-          _    <- gameRef.update(_ => game)
-        } yield PokerOutputMessage.GameState(game = game): PokerOutputMessage
-      }.recover {
-        case err: AppError => PokerOutputMessage.ErrorMessage(ec.userId, err.toString): PokerOutputMessage
-      }.handleErrorWith(err =>
-        error"got some err: ${err.getMessage}" *>
-        error"stacktrace: ${err.getStackTrace.mkString("\n")}" *>
-          (PokerOutputMessage.ErrorMessage(ec.userId, err.toString): PokerOutputMessage).pure[F]
-      )
-
-      //todo change to f[either]
-      def processPlayerEvent(game: PokerGame, event: PokerPlayerEvent, userId: UserId): F[PokerGame] = {
-        event match {
-          case Ping              => Right(game)
-          case Join(buyIn, name) => playerJoin(game, userId, name, buyIn)
-          case Leave             => playerLeave(game, userId)
-          case Fold              => playerFold(game, userId)
-          case Check             => playerCheck(game, userId)
-          case Call              => playerCall(game, userId)
-          case Raise(amount)     => playerRaise(game, userId, amount)
-          case AllIn             => playerAllIn(game, userId)
-        }
-      }.liftTo[F]
-
-      def processGameEvent(game: PokerGame, event: PokerGameEvent): F[PokerGame] = {
-        event match {
-          case NextState(PokerGameState.RoundStart) =>
-            for {
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
-              _ <- Timer[F].sleep(5.seconds)
-              d <- createShuffledDeck
-              g <- roundStarts(game, d).liftTo[F]
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Next round has begun"))
-              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
-              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
-            } yield g
-
-          case NextState(RoundEnd) =>
-            val moneyWon = game.pot.playerBets.values.sum
-            val _game = game.calculateWinners()
-            val winners = _game.winners
-            val moneyPerWinner = moneyWon / winners.size
-            val modulo = moneyWon % winners.size // add to the first player
-            val winnersMoney = winners.zipWithIndex.map { case (p, i) =>
-              if (i == 0) (p, moneyPerWinner)
-              else (p, moneyPerWinner + modulo)
-            }
-            val updatedPlayers = winnersMoney.traverse { case (p, money) => increaseBalance(p, money)}
-
-            for {
-              g   <- updatedPlayers.liftTo[F].map(_game.updatePlayers)
-              _   <- _topic.publish1(LogMessage("Showdown!"))
-              winnersStr = winnersMoney.map { case (p, m) =>
-                              s"${p.name} -> $m"
-                            }.mkString(", ")
-              _   <- _topic.publish1(LogMessage(s"Winners: $winnersStr"))
-              eid <- GenUUID[F].randomUUID.map(GameEventId.fromUUID)
-              _   <- queue.enqueue1(PokerEventContext(eid, game.id, None, NextState(game.nextState)))
-            } yield g
-
-          case NextState(Flop)        =>
-            val g = game.flop()
-            for {
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Flop State"))
-              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
-              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
-            } yield g
-
-          case NextState(Turn)        =>
-            val g = game.turn()
-            for {
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("Turn State"))
-              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
-              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
-            } yield g
-
-          case NextState(River)       =>
-            val g = game.river()
-            for {
-              _ <- _topic.publish1(PokerOutputMessage.LogMessage("River State"))
-              p <- g.playerBySeat(g.playerToActSeat).toRight(NoSuchPlayer).liftTo[F]
-              _ <- _topic.publish1(PlayerToAction(p.userId, secondsForAction)) //todo timer
-            } yield g
-        }
+      override def handleCommand(command: PokerCommand): F[Unit] = command match {
+        case PingCommand(userId)              => handlePingCommand(userId)
+        case JoinCommand(userId, buyIn, name) => handleJoinCommand(userId, buyIn, name)
+        case LeaveCommand(userId)             => handleLeaveCommand(userId)
+        case FoldCommand(userId)              => handleFoldCommand(userId)
+        case CheckCommand(userId)             => handleCheckCommand(userId)
+        case CallCommand(userId)              => handleCallCommand(userId)
+        case RaiseCommand(userId, amount)     => handleRaiseCommand(userId, amount)
+        case AllInCommand(userId)             => handleAllInCommand(userId)
       }
 
-      def createShuffledDeck: F[Deck] =
-        Concurrent[F].delay { Random.shuffle(Deck.cards52) }.map(Deck.ofCards52)
-
-      def decreaseBalance(player: PokerPlayer, delta: Token): Either[PokerError, PokerPlayer] =
-        Either.cond(delta <= player.tokens, player.copy(tokens = player.tokens - delta), UserDoesNotHaveEnoughTokens)
-
-      def increaseBalance(player: PokerPlayer, delta: Token): Either[PokerError, PokerPlayer] =
-        Right(player.copy(tokens = player.tokens + delta))
+      def handlePingCommand(userId: UserId): F[Unit] =
+        gameRef.get.flatMap(g => topic.publish1(GameState(g)))
 
       //todo lock user's balance here
-      def playerJoin(game: PokerGame, userId: UserId, name: UserName, buyIn: Token): Either[PokerError, PokerGame] = for {
-        _    <- Either.cond(game.players.size + 1 <= game.settings.maxPlayers, (), TooManyPlayers)
-        _    <- Either.cond(buyIn >= game.settings.buyInMin, (), BuyInTooLow)
-        _    <- Either.cond(buyIn <= game.settings.buyInMax, (), BuyInTooHigh)
-        seat <- game.firstEmptySeat.toRight[PokerError](NoEmptySeat)
-        p    = PokerPlayer.fromUser(userId, name, buyIn, seat)
-      } yield game.copy(players = game.players.updated(userId, p))
+      def handleJoinCommand(userId: UserId, buyIn: Token, name: UserName): F[Unit] =
+        gameRef.get.map(_.checkPlayerCanJoin(userId, buyIn)).flatMap {
+          case Left(err) => topic.publish1(PokerOutputMessage.ErrorMessage(userId.some, err.toString))
+          case Right(_)  => publishEvent(PlayerJoinedEvent(userId, buyIn, name)) as ()
+        }
 
       //todo update user's balance here?
-      def playerLeave(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        _ <- Either.cond(game.players.contains(userId), (), NoSuchPlayer)
-      } yield game.copy(players = game.players - userId)
+      def handleLeaveCommand(userId: UserId): F[Unit] =
+        gameRef.get.map(_.players.contains(userId)).ifM(
+          publishEvent(PlayerFoldedEvent(userId)) *>
+            publishEvent(PlayerLeftEvent(userId)) as (),
+          ().pure[F]
+        )
 
-      def playerFold(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- game.players.get(userId).toRight(NoSuchPlayer)
-        _      <- Either.cond(game.canPlayerFold(player), (), SomeError("can not fold"))
-      } yield game.updatePlayer(player.fold()).nextToAct()
+      def handleFoldCommand(userId: UserId): F[Unit] =
+        gameRef.get.map(_.canPlayerFold(userId)).ifM(
+          publishEvent(PlayerFoldedEvent(userId)).flatMap(onRoundFinished),
+          ().pure[F]
+        )
 
-      def playerCheck(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- game.players.get(userId).toRight(NoSuchPlayer)
-        _      <- Either.cond(game.canPlayerCheck(player), (), CanNotCheck)
-      } yield game.updatePlayer(player.check()).nextToAct()
+      def handleCheckCommand(userId: UserId): F[Unit] =
+        gameRef.get.map(_.canPlayerCheck(userId)).ifM(
+          publishEvent(PlayerCheckedEvent(userId)).flatMap(onRoundFinished),
+          ().pure[F]
+        )
 
-      def playerCall(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- game.players.get(userId).toRight(NoSuchPlayer)
-        _      <- Either.cond(game.canPlayerCall(player), (), SomeError("can not call"))
-        amount =  game.toCallPlayer(player)
-        player <- decreaseBalance(player, amount)
-        pot    =  game.pot.makeBet(userId, amount)
-      } yield game.updatePlayer(player.call()).nextToAct(pot)
+      def handleCallCommand(userId: UserId): F[Unit] =
+        gameRef.get.map(_.canPlayerCall(userId)).ifM(
+          publishEvent(PlayerCalledEvent(userId)).flatMap(onRoundFinished),
+          ().pure[F]
+        )
 
-      def playerRaise(game: PokerGame, userId: UserId, amount: Token): Either[PokerError, PokerGame] = for {
-        player <- game.players.get(userId).toRight(NoSuchPlayer)
-        _      <- Either.cond(game.canPlayerRaise(player, amount), (), SomeError("can not raise"))
-        player <- decreaseBalance(player, amount)
-        pot    =  game.pot.makeBet(userId, amount)
-      } yield game.updatePlayer(player.raise()).nextToAct(pot)
+      def handleRaiseCommand(userId: UserId, amount: Token): F[Unit] =
+        gameRef.get.map(_.canPlayerRaise(userId, amount)).ifM(
+          publishEvent(PlayerRaisedEvent(userId, amount)).flatMap(onRoundFinished),
+          ().pure[F]
+        )
 
-      def playerAllIn(game: PokerGame, userId: UserId): Either[PokerError, PokerGame] = for {
-        player <- game.players.get(userId).toRight(NoSuchPlayer)
-        _      <- Either.cond(game.canPlayerAllIn(player), (), SomeError("can not all in"))
-        player <- decreaseBalance(player, player.tokens)
-        pot    =  game.pot.makeBet(userId, player.tokens)
-      } yield game.updatePlayer(player.allIn()).nextToAct(pot)
+      def handleAllInCommand(userId: UserId): F[Unit] =
+        gameRef.get.map(_.canPlayerAllIn(userId)).ifM(
+          publishEvent(PlayerAllInedEvent(userId)).flatMap(onRoundFinished),
+          ().pure[F]
+        )
+
+      override def publishEvent(event: PokerEvent): F[PokerGame] = {
+        // publish event to EventLog(Kafka),
+        // update GameState
+        // publish updated GameState through the Topic
+        // return updated GameState
+        for {
+          game <- gameRef.updateAndGet(processEvent(event))
+          // todo publish to EventLog
+          _    <- topic.publish1(GameState(game))
+          _    <- afterEvent(event, game) //goes after game state publishing since it's publishes event as well
+        } yield game
+      }
+
+      def processEvent(event: PokerEvent)(game: PokerGame): PokerGame = event match {
+        case PlayerJoinedEvent(userId, buyIn, name) => game.playerJoin(userId, buyIn, name).getOrElse(game)
+        case PlayerLeftEvent(userId)                => game.playerLeave(userId)
+        case PlayerFoldedEvent(userId)              => game.playerFolds(userId).getOrElse(game)
+        case PlayerCheckedEvent(userId)             => game.playerChecks(userId).getOrElse(game)
+        case PlayerCalledEvent(userId)              => game.playerCalls(userId).getOrElse(game)
+        case PlayerRaisedEvent(userId, amount)      => game.playerRaises(userId, amount).getOrElse(game)
+        case PlayerAllInedEvent(userId)             => game.playerGoesAllIn(userId).getOrElse(game)
+
+        case NewRoundStartedEvent(deck)                  => roundStarts(game, deck).toOption.getOrElse(game)
+        case CardsDealtEvent(playersWithCards, deck)     => ???
+        case FlopStartedEvent(card1, card2, card3, deck) => game.flop(card1, card2, card3, deck)
+        case TurnStartedEvent(card, deck)                => game.turn(card, deck)
+        case RiverStartedEvent(card, deck)               => game.river(card, deck)
+        case RoundFinishedEvent                          => game.roundEnds()
+      }
+
+      // performs some actions after event
+      def afterEvent(event: PokerEvent, game: PokerGame): F[Unit] = event match {
+        case PlayerJoinedEvent(userId, buyIn, name) =>
+          topic.publish1(LogMessage(s"Player $name has joined the table with $buyIn tokens! Keep an eye on your money!"))
+
+        case PlayerLeftEvent(userId) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name has left the table! Hope they have something left in their pockets!"))
+
+        case PlayerFoldedEvent(userId) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name folded!")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case PlayerCheckedEvent(userId) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name checked!")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case PlayerCalledEvent(userId) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name called !")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case PlayerRaisedEvent(userId, amount) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name raised with $amount tokens!")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case PlayerAllInedEvent(userId) =>
+          val name = game.players.get(userId).map(_.name.toString).getOrElse("")
+          topic.publish1(LogMessage(s"Player $name goes ALL IN. Are They Crazy?!")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case NewRoundStartedEvent(_) =>
+          topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
+            .flatTap(_ => Timer[F].sleep(3.seconds)) *>  //todo run in background
+          topic.publish1(LogMessage("Next round has begun")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case CardsDealtEvent(_, _) => ???
+        case FlopStartedEvent(card1, card2, card3, _) =>
+          topic.publish1(LogMessage(s"Flop! $card1 $card2 $card3")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case TurnStartedEvent(card, _) =>
+          topic.publish1(LogMessage(s"Turn! $card")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case RiverStartedEvent(card, _) =>
+          topic.publish1(LogMessage(s"River! $card")) *>
+          topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+
+        case PokerEvent.RoundFinishedEvent =>
+          val winnersStr = game.winnersMoney.map { case (p, m) => s"${p.name} -> $m" }.mkString(", ")
+          topic.publish1(LogMessage(if (game.showdown.isDefined) "Showdown!" else "No Showdown!")) *>
+          topic.publish1(LogMessage(s"Winners: $winnersStr")) *>
+          GenRandom
+            .nextLong
+            .map(Deck.shuffledOf52)
+            .map(NewRoundStartedEvent)
+            .flatMap(publishEvent)
+            .as(())
+
+
+      }
+
+      def onRoundFinished(game: PokerGame): F[Unit] = {
+        //if round is fnished publish event about next round
+        if (game.isRoundFinished)
+          game.state match {
+            case PokerGameState.RoundStart =>
+              if (game.activePlayers.size > 1)
+                game.deck.getFirstNCards(3).toRight(EmptyDeck).liftTo[F].flatMap {
+                  case (card1::card2::card3::Nil, deck) =>
+                    publishEvent(FlopStartedEvent(card1, card2, card3, deck)) as ()
+                }
+              else publishEvent(RoundFinishedEvent) as ()
+
+            case PokerGameState.Flop =>
+              if (game.activePlayers.size > 1)
+                game.deck.getFirstNCards().toRight(EmptyDeck).liftTo[F].flatMap {
+                  case (card::Nil, deck) => publishEvent(TurnStartedEvent(card, deck)) as ()
+                }
+              else publishEvent(RoundFinishedEvent) as ()
+
+            case PokerGameState.Turn =>
+              if (game.activePlayers.size > 1)
+                game.deck.getFirstNCards().toRight(EmptyDeck).liftTo[F].flatMap {
+                  case (card::Nil, deck) => publishEvent(RiverStartedEvent(card, deck)) as ()
+                }
+              else publishEvent(RoundFinishedEvent) as ()
+
+            case PokerGameState.River =>
+              publishEvent(RoundFinishedEvent) as ()
+
+            case PokerGameState.RoundEnd =>
+              warn"onRoundFinished should not be called on RoundEnd"
+          }
+
+        else ().pure[F]
+      }
 
       def betBlind(game: PokerGame, player: PokerPlayer, blind: Token): Either[PokerError, PokerGame] = for {
-        p   <- decreaseBalance(player, blind)
+        p   <- player.decreaseBalance(blind)
         pot =  game.pot.makeBet(player.userId, blind)
       } yield game.updatePlayer(p).nextToAct(pot)
 
@@ -231,5 +271,16 @@ object PokerGameManager {
         } yield game
       }
     }
+
+    managerOf.flatMap { manager =>
+      GenRandom
+        .nextLong
+        .map(Deck.shuffledOf52)
+        .map(NewRoundStartedEvent)
+        .flatMap(manager.publishEvent)
+    }
+
+    managerOf
+  }
 
 }

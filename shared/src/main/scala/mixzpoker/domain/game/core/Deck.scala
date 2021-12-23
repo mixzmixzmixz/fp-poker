@@ -2,6 +2,8 @@ package mixzpoker.domain.game.core
 
 import io.circe.{Decoder, Encoder}
 
+import scala.util.Random
+
 
 trait Deck {
   def getFirstNCards(n: Int = 1): Option[(List[Card], Deck)]
@@ -18,13 +20,7 @@ object Deck {
     override def size: Int = cards.size
   }
 
-  def of52: Deck = {
-    val cards = for {
-      suit <- Suit.all
-      rank <- Rank.all
-    } yield Card(rank, suit)
-    Deck52(cards.toList)
-  }
+  def of52: Deck = Deck52(cards52)
 
   def ofCards52(cards: List[Card]): Deck = Deck52(cards)
 
@@ -35,6 +31,8 @@ object Deck {
     } yield Card(rank, suit)
   }.toList
 
+  def shuffledOf52(seed: Long): Deck =
+    Deck52(new Random(seed).shuffle(cards52))
 
   implicit val deck52Encoder: Encoder[Deck] = Encoder[String].contramap {
     case Deck52(_) => "deck52"

@@ -2,10 +2,12 @@ package mixzpoker.domain.game.poker
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
 import mixzpoker.domain.Token
-import mixzpoker.domain.game.core.Hand
 import mixzpoker.domain.user.{UserId, UserName}
+import mixzpoker.domain.game.core.Hand
 import mixzpoker.domain.game.poker.PokerPlayerState._
+import mixzpoker.domain.game.poker.PokerError._
 
 
 final case class PokerPlayer(
@@ -29,6 +31,11 @@ final case class PokerPlayer(
   def raise(): PokerPlayer = copy(state = Raised)
   def allIn(): PokerPlayer = copy(state = AllIned)
 
+  def decreaseBalance(delta: Token): Either[PokerError, PokerPlayer] =
+    Either.cond(delta <= tokens, copy(tokens = tokens - delta), UserDoesNotHaveEnoughTokens)
+
+  def increaseBalance(delta: Token): PokerPlayer =
+    copy(tokens = tokens + delta)
 }
 
 

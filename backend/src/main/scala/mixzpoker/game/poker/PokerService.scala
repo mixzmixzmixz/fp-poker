@@ -11,11 +11,12 @@ import tofu.generate.{GenRandom, GenUUID}
 import tofu.logging.Logging
 import tofu.syntax.logging._
 import org.http4s.websocket.WebSocketFrame.Text
+
 import mixzpoker.game.GameRecord
 import mixzpoker.chat.ChatService
 import mixzpoker.domain.game.GameError._
-import mixzpoker.domain.game.poker.{PokerEvent, PokerEventContext, PokerGame, PokerGameState, PokerInputMessage, PokerSettings}
-import mixzpoker.domain.game.{GameEventId, GameId}
+import mixzpoker.domain.game.poker.{PokerGame, PokerInputMessage, PokerSettings}
+import mixzpoker.domain.game.GameId
 import mixzpoker.domain.lobby.Lobby
 import mixzpoker.domain.user.User
 import mixzpoker.game.poker.PokerCommand._
@@ -33,8 +34,10 @@ trait PokerService[F[_]] {
 }
 
 object PokerService {
+
+
   //todo of -> resource
-  def of[F[_]: ConcurrentEffect: Logging: Timer: GenRandom]: F[PokerService[F]] = for {
+  private def of[F[_]: ConcurrentEffect: Logging: Timer: GenRandom]: F[PokerService[F]] = for {
     pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
 
     //this is different and should be placed somewhere in reliable store in order to restore pokerManager if it fails
@@ -105,4 +108,8 @@ object PokerService {
     def handleCommand(commandContext: PokerCommandContext): F[Unit] =
       pokerManagers.get.flatMap(_.get(commandContext.gameId).traverse(_.handleCommand(commandContext.command))).map(_.getOrElse(()))
   }
+
+
+  def create[F[_]: ConcurrentEffect: Logging: Timer: GenRandom]: F[Resource[F, PokerService[F]]] =
+    of.map { ps => ps.runBackground.map(_ => ps) }
 }

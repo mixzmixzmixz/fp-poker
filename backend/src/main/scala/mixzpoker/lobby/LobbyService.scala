@@ -31,7 +31,7 @@ trait LobbyService[F[_]] {
 }
 
 object LobbyService {
-  def of[F[_]: Concurrent: Timer: Logging](
+  private def of[F[_]: Concurrent: Timer: Logging](
     repository: LobbyRepository[F],
     pokerService: PokerService[F]
   ): F[LobbyService[F]] = {
@@ -155,4 +155,10 @@ object LobbyService {
     }
 
     }
+
+  def create[F[_]: Concurrent: Timer: Logging](
+    repository: LobbyRepository[F],
+    pokerService: PokerService[F]
+  ): F[Resource[F, LobbyService[F]]] =
+    of(repository, pokerService).map { ls => ls.runBackground.map(_ => ls) }
 }

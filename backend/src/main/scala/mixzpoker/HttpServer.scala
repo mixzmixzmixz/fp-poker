@@ -1,6 +1,7 @@
 package mixzpoker
 
 import cats.implicits._
+import cats.effect.syntax.all._
 import cats.effect.{ConcurrentEffect, Timer, Resource}
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
@@ -27,7 +28,7 @@ object HttpServer {
     authService: AuthService[F],
     lobbyService: LobbyService[F],
     pokerService: PokerService[F]
-  ): Resource[F, Server[F]] = {
+  ): Resource[F, F[Unit]] = {
     val authApi    = new AuthApi[F](authService)
     val userApi    = new UserApi[F](userRepo)
     val pokerApi   = new PokerApi[F](pokerService, lobbyRepo, authService)
@@ -54,20 +55,13 @@ object HttpServer {
       )
     )).orNotFound
 
-
-    val httpServer = BlazeServerBuilder[F](global)
+    BlazeServerBuilder[F](global)
       .bindHttp(8080, "0.0.0.0")
       .withHttpApp(httpApp)
-      .resource
+      .serve
+      .compile
+      .drain
+      .background
 
-    for {
-      server <- httpServer
-      _      <- lobbyService.runBackground
-      _      <- pokerService.runBackground
-    } yield server
   }
-//        _            <- lobbyService.runBackground.use()
-////        fiber1 <- ConcurrentEffect[F].start(pokerService.runBackground)
-//        fiber2 <- ConcurrentEffect[F].start(lobbyService.runBackground)
-
 }

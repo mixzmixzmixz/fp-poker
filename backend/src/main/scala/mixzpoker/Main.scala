@@ -1,6 +1,7 @@
 package mixzpoker
 
 import cats.implicits._
+import cats.effect.syntax.all._
 import cats.effect.{ConcurrentEffect, ExitCode, IO, IOApp, Timer}
 import tofu.Delay
 import tofu.generate.GenRandom
@@ -23,18 +24,21 @@ object Main extends IOApp {
     implicit val logging: Logging[F] = makeLogging.byName("MainLog")
 
 
-    GenRandom.instance[F, F]().flatMap { implicit genRandom =>
+    val server = GenRandom.instance[F, F]().flatMap { implicit genRandom =>
       for {
         userRepo     <- UserRepository.inMemory
         lobbyRepo    <- LobbyRepository.inMemory
         authService  <- AuthService.inMemory(userRepo)
-        pokerService <- PokerService.of
-        lobbyService <- LobbyService.of(lobbyRepo, pokerService)
-
-        httpServer = HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)
-      } yield httpServer//ExitCode.Success
-    }.flatMap { server =>
-      server.use(_ => ConcurrentEffect[F].never[Unit]) as ExitCode.Success
+        pokerSrvRes  <- PokerService.create
+        lobbySrvRes  =  pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
+      } yield
+        for {
+          pokerService <- pokerSrvRes
+          lobbyService <- lobbySrvRes
+          server       <- HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)
+        } yield server
     }
+
+    server.flatMap { srv => srv.use( _ => ConcurrentEffect[F].never[Unit] as ExitCode.Success)}
   }
 }

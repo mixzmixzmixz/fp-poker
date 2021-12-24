@@ -10,7 +10,7 @@
     <root level="DEBUG">
         <appender-ref ref="STDOUT" />
     </root>
-    <!-- limit spamming of `http4s` internals -->
+    <!-- limit spamming of `http4s` internals (http4s 21)-->
     <logger name="org.http4s.blaze.channel.nio1.NIO1HeadStage" level="info"/>
     <logger name="org.http4s.blaze.channel.nio1.SelectorLoop" level="warn"/>
     <logger name="org.http4s.blaze.channel.nio1.NIO1SocketServerGroup" level="warn"/>
@@ -24,6 +24,6 @@
     <logger name="org.http4s.blaze.server.Http1ServerStage" level="info"/>
     <logger name="org.http4s.server.blaze.Http1ServerStage" level="info"/>
     <logger name="org.http4s.server.middleware.CORS" level="warn"/>
-    <logger name="org.http4s.blaze.server.WebSocketDecoder" level="info"/>
-    <logger name="org.http4s.blaze.server.WSFrameAggregator" level="info"/>
+    <logger name="org.http4s.server.blaze.WebSocketDecoder" level="info"/>
+    <logger name="org.http4s.server.blaze.WSFrameAggregator" level="info"/>
 </configuration>

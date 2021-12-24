@@ -49,9 +49,8 @@ object PokerService {
     override def runBackground: Resource[F, F[Unit]] =
       commandQueue
         .dequeue
-        .evalTap(e => info"Got event: ${e.toString}")
+        .evalTap(cmdCtx => info"GameId=${cmdCtx.gameId.toString} Command: ${cmdCtx.command.toString}")
         .evalMap(handleCommand)
-        .evalTap(_ => info"Successfully proceed an event")
         .compile
         .drain
         .background

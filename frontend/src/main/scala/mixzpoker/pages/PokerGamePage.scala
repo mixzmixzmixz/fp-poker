@@ -12,17 +12,18 @@ import mixzpoker.components.Dialogs.JoinDialog
 import mixzpoker.{AppContext, AppError, Config, Page}
 import mixzpoker.components.{Chat, Navigation, Svg}
 import mixzpoker.domain.game.GameId
-import mixzpoker.domain.game.poker.{PokerEvent, PokerGame, PokerOutputMessage, PokerPlayer}
+import mixzpoker.domain.game.poker.{PokerEvent, PokerGame, PokerInputMessage, PokerOutputMessage, PokerPlayer}
 import mixzpoker.domain.game.poker.PokerOutputMessage._
-import mixzpoker.domain.game.poker.PokerEvent._
+import mixzpoker.domain.game.poker.PokerInputMessage._
+
 
 
 object PokerGamePage {
 
-  def createWS(name: String): WebSocket[PokerOutputMessage, PokerEvent] = WebSocket
+  def createWS(name: String): WebSocket[PokerOutputMessage, PokerInputMessage] = WebSocket
     .url(s"${Config.wsRootEndpoint}/poker/$name/ws")
     .receiveText[PokerOutputMessage](decode[PokerOutputMessage])
-    .sendText[PokerEvent](_.asJson.noSpaces)
+    .sendText[PokerInputMessage](_.asJson.noSpaces)
     .build(reconnectRetries = 5, reconnectDelay = 3.seconds)
 
   def apply($gamePage: Signal[Page.PokerGame])(implicit appContext: Var[AppContext]): HtmlElement = {
@@ -89,7 +90,7 @@ object PokerGamePage {
         val allInBtn = Button(
           _.`label` := "AllIn",
           _.`raised` := true,
-          _.`disabled` <-- gameState.signal.map(!_.canPlayerAllIn(me)),
+          _.`disabled` <-- gameState.signal.map(!_.canPlayerAllIn(me.userId)),
           _ => onClick --> { _ => ws.sendOne(AllIn) }
         )
 
@@ -97,7 +98,7 @@ object PokerGamePage {
           _.`label` := "Raise",
           _.`raised` := true,
           _.`disabled` <-- gameState.signal.combineWith(betAmount.signal).map { case (gs, bet) =>
-            !gs.canPlayerRaise(me, bet)
+            !gs.canPlayerRaise(me.userId, bet)
           },
           _ => onClick --> { _ =>
             ws.sendOne(Raise(betAmount.now()))
@@ -112,19 +113,19 @@ object PokerGamePage {
             Button(
               _.`label` := "Fold",
               _.`raised` := true,
-              _.`disabled` <-- gameState.signal.map(!_.canPlayerFold(me)),
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerFold(me.userId)),
               _ => onClick --> { _ => ws.sendOne(Fold) }
             ),
             Button(
               _.`label` := "Call",
               _.`raised` := true,
-              _.`disabled` <-- gameState.signal.map(!_.canPlayerCall(me)),
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerCall(me.userId)),
               _ => onClick --> { _ => ws.sendOne(Call) }
             ),
             Button(
               _.`label` := "Check",
               _.`raised` := true,
-              _.`disabled` <-- gameState.signal.map(!_.canPlayerCheck(me)),
+              _.`disabled` <-- gameState.signal.map(!_.canPlayerCheck(me.userId)),
               _ => onClick --> { _ => ws.sendOne(Check) }
             ),
           ),
@@ -223,7 +224,7 @@ object PokerGamePage {
             JoinDialog(
               isJoinDialogOpen,
               "JoinGame", gs.settings.buyInMin,
-              (buyIn: Int) => ws.sendOne(Join(buyIn, appContext.now().user.name))
+              (buyIn: Int) => ws.sendOne(Join(buyIn))
             )
           }
         )
@@ -235,7 +236,7 @@ object PokerGamePage {
         ws.connected --> { _ws =>
           dom.console.log("ws connected")
           _ws.send(appContext.now().token)
-          ws.sendOne(PokerEvent.Ping)
+          ws.sendOne(Ping)
         },
         ws.received --> { message => processServerMessages(message) },
         div(

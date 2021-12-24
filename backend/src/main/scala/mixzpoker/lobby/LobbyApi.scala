@@ -66,9 +66,7 @@ class LobbyApi[F[_]: Sync: Logging](
     //todo mb filter lobbies by user rights or smth
     // todo filter and pagination using query params
     for {
-      _       <- info"Get lobbies req user:"
       lobbies <- lobbyRepository.list()
-      _       <- info"Get lobbies: ${lobbies.asJson.spaces2}"
       resp    <- Ok(lobbies.asJson)
     } yield resp
   }

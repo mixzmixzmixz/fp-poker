@@ -1,15 +1,13 @@
 package mixzpoker
 
-import cats.{Functor, Parallel}
 import cats.arrow.FunctionK
 import cats.implicits._
 import cats.data.{NonEmptySet => Nes}
 import cats.effect.concurrent.Deferred
 import cats.effect.syntax.all._
-import cats.effect.{Clock, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, Resource, Timer}
-import com.evolutiongaming.catshelper.{Blocking, FromFuture, FromTry, ToFuture, ToTry}
+import cats.effect.{ConcurrentEffect, ContextShift, ExitCode, Resource, Timer}
+import com.evolutiongaming.catshelper.{FromTry, Log, ToFuture, ToTry}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{CommonConfig, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.producer._
@@ -28,6 +26,7 @@ object GameServer {
 
     implicit val makeLogging: Logging.Make[F] = Logging.Make.plain[F]
     implicit val logging: Logging[F] = makeLogging.byName("MainLog")
+    implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
     val topic = Topics.PokerTexasHoldemCommands
 
@@ -37,18 +36,6 @@ object GameServer {
       autoCommit = false,
       common = CommonConfig(clientId = Some(UUID.randomUUID().toString))
     )
-
-    implicit val executor: ExecutionContextExecutor = ExecutionContext.global
-
-    implicit val contextShiftIO: ContextShift[IO]     = IO.contextShift(executor)
-    implicit val concurrentIO: Concurrent[IO]         = IO.ioConcurrentEffect
-    implicit val timerIO: Timer[IO]                   = IO.timer(executor)
-    implicit val parallelIO: Parallel[IO]             = IO.ioParallel
-    implicit val fromFutureIO: FromFuture[IO]         = FromFuture.lift[IO]
-    implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock[IO](Clock[IO])
-    implicit val blocking: Blocking[IO]               = Blocking.empty[IO]
-
-    val ecBlocking = executor
 
     def consumerOf(
       topic: Topic,
@@ -72,6 +59,17 @@ object GameServer {
       } yield consumer
     }
 
+    def producerOf(acks: Acks): Resource[F, Producer[F]] = {
+      val config = ProducerConfig.Default.copy(acks = acks)
+      val producerOf = ProducerOf.apply(executor, None).mapK(FunctionK.id, FunctionK.id)
+      for {
+//        metrics    <- ProducerMetrics.of(CollectorRegistry.empty[F])
+
+        producer   <- producerOf(config)
+      } yield {
+        producer.withLogging(Log.empty)
+      }
+    }
 
     def listenerOf(assigned: Deferred[F, Unit]): RebalanceListener[F] = {
       new RebalanceListener[F] {
@@ -114,12 +112,26 @@ object GameServer {
       assigned <- Deferred[F, Unit]
       listener  = listenerOf(assigned = assigned)
       consumer  = consumerOf(topic, listener.some)
-      res      <- consumer.use { consumer =>
+      producer  = producerOf(Acks.One)
+
+      _ <- producer.use { producer =>
+        for {
+          _ <- info"Send my value1"
+          _ <- producer.send(ProducerRecord(topic, "hello", "there")).flatten
+          _ <- info"Send my value2"
+          _ <- producer.send(ProducerRecord(topic, "obi-wan", "kenobi")).flatten
+        } yield ()
+      }
+
+      _ <- info"poll my values"
+      res <- consumer.use { consumer =>
         for {
           _ <- consumer.subscribe(Nes.of("topic"))
           records <- consumer.poll(100.millis)
         } yield records
       }
+      _ <- info"polled: ${res.toString}"
+
     } yield ExitCode.Success
 
   }

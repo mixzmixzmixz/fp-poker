@@ -2,7 +2,9 @@ package mixzpoker
 
 import cats.implicits._
 import cats.effect.syntax.all._
-import cats.effect.{ConcurrentEffect, ExitCode, IO, IOApp, Timer}
+import cats.effect.{Clock, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Timer}
+import com.evolutiongaming.catshelper.{FromTry, ToFuture, ToTry}
+import com.evolutiongaming.smetrics.MeasureDuration
 import tofu.Delay
 import tofu.generate.GenRandom
 //import tofu.internal.carriers.DelayCarrier2.interop
@@ -15,11 +17,13 @@ import mixzpoker.user.UserRepository
 
 
 object Main extends IOApp {
-  def run(args: List[String]): IO[ExitCode] =
-//    HttpServer.runBackground[IO]
+  def run(args: List[String]): IO[ExitCode] = {
+    implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock[IO](Clock[IO])
     make[IO]
+  }
 
-  def make[F[_]: ConcurrentEffect: Timer: Delay]: F[ExitCode] = {
+
+  def make[F[_]: ConcurrentEffect: Timer: Delay: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration]: F[ExitCode] = {
     implicit val makeLogging: Logging.Make[F] = Logging.Make.plain[F]
     implicit val logging: Logging[F] = makeLogging.byName("MainLog")
 
@@ -29,7 +33,7 @@ object Main extends IOApp {
         userRepo     <- UserRepository.inMemory
         lobbyRepo    <- LobbyRepository.inMemory
         authService  <- AuthService.inMemory(userRepo)
-        pokerSrvRes  <- PokerService.create
+        pokerSrvRes  <- PokerService.of
         lobbySrvRes  =  pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
       } yield
         for {

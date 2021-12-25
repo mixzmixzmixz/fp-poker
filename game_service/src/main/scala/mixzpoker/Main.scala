@@ -1,7 +1,7 @@
 package mixzpoker
 
 import cats.Parallel
-import cats.effect.{Clock, Concurrent, ContextShift, ExitCode, IO, IOApp, Timer}
+import cats.effect.{Clock, Concurrent, ExitCode, IO, IOApp}
 import com.evolutiongaming.catshelper.{Blocking, FromFuture}
 import com.evolutiongaming.smetrics.MeasureDuration
 

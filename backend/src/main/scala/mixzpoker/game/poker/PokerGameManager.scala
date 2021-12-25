@@ -40,7 +40,8 @@ object PokerGameManager {
   type EventsMessages = (List[PokerEvent], List[PokerOutputMessage])
 
   def create[F[_]: Concurrent: Logging: Timer: GenUUID: GenRandom](
-    gameId: GameId, settings: PokerSettings, players: List[Player]
+    gameId: GameId, settings: PokerSettings, players: List[Player],
+    storeEvent: (PokerEvent, GameId) => F[Unit]
   ): F[PokerGameManager[F]] = {
     for {
       gameRef <- Ref.of[F, PokerGame](PokerGame.create(
@@ -133,6 +134,7 @@ object PokerGameManager {
             _    <- info"Publish event GameId=${id.toString} event=${event.toString}"
             game <- gameRef.updateAndGet(processEvent(event))
             // todo publish to EventLog
+            _    <- storeEvent(event, gameId)
             _    <- topic.publish1(GameState(game))
             _    <- afterEvent(event, game) //goes after game state publishing since it's publishes event as well
           } yield game
@@ -215,7 +217,7 @@ object PokerGameManager {
               GenRandom
                 .nextLong
                 .map(Deck.shuffledOf52)
-                .map(NewRoundStartedEvent)
+                .map(deck => NewRoundStartedEvent(deck))
                 .flatMap(publishEvent)
                 .as(())
 
@@ -279,7 +281,7 @@ object PokerGameManager {
     GenRandom
       .nextLong
       .map(Deck.shuffledOf52)
-      .map(NewRoundStartedEvent)
+      .map(deck => NewRoundStartedEvent(deck))
       .flatMap(manager.publishEvent)
   }
 

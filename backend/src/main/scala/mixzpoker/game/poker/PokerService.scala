@@ -50,7 +50,7 @@ trait PokerService[F[_]] {
 
 object PokerService {
   def of[
-    F[_]: ConcurrentEffect: Logging: Timer: GenRandom: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration
+    F[_]: ConcurrentEffect: Logging: Timer: GenUUID: GenRandom: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration
   ]: F[Resource[F, PokerService[F]]] = {
 
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
@@ -74,14 +74,15 @@ object PokerService {
 
     def consumerOf(
       topic: Topic,
-      listener: Option[RebalanceListener[F]]
+      listener: Option[RebalanceListener[F]],
+      consumerUUUID: UUID
     ): Resource[F, Consumer[F, String, String]] = {
 
       val config = ConsumerConfig.Default.copy(
         groupId = Some(s"group-$topic"),
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false,
-        common = CommonConfig(clientId = Some(UUID.randomUUID().toString))
+        common = CommonConfig(clientId = consumerUUUID.toString.some)
       )
       val consumerOf  = ConsumerOf[F](executor, None).mapK(FunctionK.id, FunctionK.id)
 
@@ -106,10 +107,11 @@ object PokerService {
       gameRecords   <- Ref.of(Map.empty[GameId, GameRecord])
       commandQueue  <- Queue.unbounded[F, PokerCommandContext]
       chatService   <- ChatService.of[F, GameId]
+      consumerUUID  <- GenUUID[F].randomUUID
     } yield {
       for {
         kafkaProducer <- kpRes
-        consumerCmds  <- consumerOf(topic, None)
+        consumerCmds  <- consumerOf(topic, None, consumerUUID)
         producerCmds  <- producerOf(Acks.One)
         _             <- consume(consumerCmds, commandQueue).background
         pokerService  =  new PokerService[F] {

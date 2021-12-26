@@ -8,8 +8,6 @@ import tofu.logging.Logging
 import tofu.syntax.logging._
 
 import com.evolutiongaming.catshelper.{FromTry, Log, ToFuture, ToTry}
-import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer._
 import com.evolutiongaming.smetrics.MeasureDuration
 import fs2.concurrent.Queue
@@ -17,7 +15,6 @@ import io.circe.syntax._
 import io.circe.Encoder
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
-import java.util.UUID
 
 import mixzpoker.domain.game.Topics
 
@@ -28,7 +25,9 @@ trait KafkaProducer[F[_], Event, Key] {
 
 object KafkaProducer {
   def of[
-    F[_]: ConcurrentEffect: Timer: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration: Logging, Event: Encoder, Key
+    F[_]: ConcurrentEffect: Timer: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration: Logging,
+    Event: Encoder,
+    Key
   ]: F[Resource[F, KafkaProducer[F, Event, Key]]] = {
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 

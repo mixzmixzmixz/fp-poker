@@ -1,6 +1,10 @@
 package mixzpoker.domain.game
 
 object Topics {
-  val PokerTexasHoldemCommands = "poker-texas-holdem-commands"
-  val pokerTexasHoldemStates = "poker-texas-holdem-states"
+  val pokerTexasHoldemCommands = "poker-texas-holdem-commands"
+  val pokerTexasHoldemEvents = "poker-texas-holdem-events"
+
+  object Compact {
+    val pokerTexasHoldemSnapshots = "poker-texas-holdem-snapshots"
+  }
 }

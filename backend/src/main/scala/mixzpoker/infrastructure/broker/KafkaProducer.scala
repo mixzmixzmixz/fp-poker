@@ -32,24 +32,12 @@ object KafkaProducer {
   ]: F[Resource[F, KafkaProducer[F, Event, Key]]] = {
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
-    val topic = Topics.PokerTexasHoldemCommands
-
-    val config = ConsumerConfig.Default.copy(
-      groupId = Some(s"group-$topic"),
-      autoOffsetReset = AutoOffsetReset.Earliest,
-      autoCommit = false,
-      common = CommonConfig(clientId = Some(UUID.randomUUID().toString))
-    )
+    val topic = Topics.pokerTexasHoldemEvents
 
     def producerOf(acks: Acks): Resource[F, Producer[F]] = {
       val config = ProducerConfig.Default.copy(acks = acks)
       val producerOf = ProducerOf.apply(executor, None).mapK(FunctionK.id, FunctionK.id)
-      for {
-        // metrics    <- ProducerMetrics.of(CollectorRegistry.empty[F])
-        producer   <- producerOf(config)
-      } yield {
-        producer.withLogging(Log.empty) //todo do I need logs here? replace with tofu logs somehow?
-      }
+      producerOf(config).map(_.withLogging(Log.empty))  // todo do I need logs here? replace with tofu logs somehow?
     }
 
     def process(queue: Queue[F, (Event, Key)], producer: Producer[F]) = {

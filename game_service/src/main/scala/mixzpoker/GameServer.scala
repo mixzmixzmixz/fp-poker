@@ -28,7 +28,7 @@ object GameServer {
     implicit val logging: Logging[F] = makeLogging.byName("MainLog")
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
-    val topic = Topics.PokerTexasHoldemCommands
+    val topic = Topics.pokerTexasHoldemCommands
 
     val config = ConsumerConfig.Default.copy(
       groupId = Some(s"group-$topic"),

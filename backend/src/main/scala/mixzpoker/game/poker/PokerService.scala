@@ -80,7 +80,7 @@ object PokerService {
 
       val config = ConsumerConfig.Default.copy(
         groupId = Some(s"group-$topic"),
-        autoOffsetReset = AutoOffsetReset.Earliest,
+        autoOffsetReset = AutoOffsetReset.Latest,
         autoCommit = false,
         common = CommonConfig(clientId = consumerUUUID.toString.some)
       )
@@ -111,7 +111,7 @@ object PokerService {
     } yield {
       for {
         kafkaProducer <- kpRes
-        consumerCmds  <- consumerOf(topic, None, consumerUUID)
+        consumerCmds  <- consumerOf(topic, None, UUID.fromString("6eeb25b6-1008-469d-99ad-6de7642de597")) //todo to config
         producerCmds  <- producerOf(Acks.One)
         _             <- consume(consumerCmds, commandQueue).background
         pokerService  =  new PokerService[F] {
@@ -171,8 +171,6 @@ object PokerService {
             }
               //.through(commandQueue.enqueue)  // No Kafka Mode
               .through(kafkaCommandTopicPipe) //Kafka Mode
-
-
 
           override def toClient(gameId: GameId, userRef: Ref[F, Option[User]]): F[Option[Stream[F, Text]]] =
             pokerManagers

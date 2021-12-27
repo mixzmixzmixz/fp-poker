@@ -23,7 +23,7 @@ import mixzpoker.game.poker.PokerService
 
 
 trait LobbyService[F[_]] {
-  def create(name: LobbyName, owner: User, gameType: GameType): F[Boolean]
+  def create(name: LobbyName, owner: User, gameType: GameType): F[Option[Lobby]]
   def runBackground: Resource[F, F[Unit]]
   def toClient(name: LobbyName): Stream[F, Text]
   def fromClientPipe(name: LobbyName): Pipe[F, (Option[User], String), Unit]
@@ -41,12 +41,12 @@ object LobbyService {
       topic       <- Topic[F, (LobbyName, LobbyOutputMessage)]((ln, KeepAlive))
       chatService <- ChatService.of[F, LobbyName]
     } yield new LobbyService[F] {
-      override def create(name: LobbyName, owner: User, gameType: GameType): F[Boolean] =
+      override def create(name: LobbyName, owner: User, gameType: GameType): F[Option[Lobby]] =
         repository
           .create(name, owner, gameType)
-          .flatMap { cond =>
-            if (cond) chatService.create(name) as cond
-            else cond.pure[F]
+          .flatTap { mbLobby =>
+            if (mbLobby.isDefined) chatService.create(name)
+            else ().pure[F]
           }
 
       override def chatPipes(name: LobbyName): F[Option[(Stream[F, Text], Pipe[F, (Option[User], String), Unit])]] =

@@ -59,15 +59,14 @@ object Main extends IOApp {
 
     val server = GenRandom.instance[F, F]().flatMap { implicit genRandom =>
       for {
-        lobbyRepo    <- LobbyRepository.inMemory
         pokerSrvRes  <- PokerService.of
-        lobbySrvRes  =  pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
       } yield
         for {
+          lobbyRepo    <- LobbyRepository.ofRedis()
           userRepo     <- UserRepository.ofRedis()
           authService  <- AuthService.ofRedis(userRepo)
           pokerService <- pokerSrvRes
-          lobbyService <- lobbySrvRes
+          lobbyService <- pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
           server       <- HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)
         } yield server
     }

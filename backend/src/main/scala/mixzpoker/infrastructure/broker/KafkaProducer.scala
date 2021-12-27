@@ -16,7 +16,6 @@ import io.circe.Encoder
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-import mixzpoker.domain.game.Topics
 
 // tiny wrapper in order to encapsulate all the dependencies here
 trait KafkaProducer[F[_], Event, Key] {
@@ -28,10 +27,8 @@ object KafkaProducer {
     F[_]: ConcurrentEffect: Timer: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration: Logging,
     Event: Encoder,
     Key
-  ]: F[Resource[F, KafkaProducer[F, Event, Key]]] = {
+  ](topic: String): F[Resource[F, KafkaProducer[F, Event, Key]]] = {
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
-
-    val topic = Topics.pokerTexasHoldemEvents
 
     def producerOf(acks: Acks): Resource[F, Producer[F]] = {
       val config = ProducerConfig.Default.copy(acks = acks)

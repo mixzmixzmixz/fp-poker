@@ -42,6 +42,7 @@ trait PokerService[F[_]] {
   def createGame(lobby: Lobby): F[GameId]
   def exists(gameId: GameId): F[Boolean]
   def storeEvent(event: PokerEvent, gameId: GameId): F[Unit]
+  def saveSnapshot(game: PokerGame, gameId: GameId): F[Unit]
 
   def chatPipes(gameId: GameId): F[Option[(Stream[F, Text], Pipe[F, (Option[User], String), Unit])]]
   def fromClientPipe(gameId: GameId): Pipe[F, (Option[User], String), Unit]
@@ -100,7 +101,8 @@ object PokerService {
 
 
     for {
-      kpRes         <- KafkaProducer.of[F, PokerEvent, GameId]
+      kpEventsRes   <- KafkaProducer.of[F, PokerEvent, GameId](Topics.pokerTexasHoldemEvents)
+      kpSnapshotsRes<- KafkaProducer.of[F, PokerGame, GameId](Topics.Compact.pokerTexasHoldemSnapshots)
       pokerManagers <- Ref.of(Map.empty[GameId, PokerGameManager[F]])
 
       //this is different and should be placed somewhere in reliable store in order to restore pokerManager if it fails
@@ -110,7 +112,8 @@ object PokerService {
       consumerUUID  <- GenUUID[F].randomUUID
     } yield {
       for {
-        kafkaProducer <- kpRes
+        kpEvents      <- kpEventsRes
+        kpSnapshots   <- kpSnapshotsRes
         consumerCmds  <- consumerOf(topic, None, UUID.fromString("6eeb25b6-1008-469d-99ad-6de7642de597")) //todo to config
         producerCmds  <- producerOf(Acks.One)
         _             <- consume(consumerCmds, commandQueue).background
@@ -134,7 +137,7 @@ object PokerService {
           override def createGame(lobby: Lobby): F[GameId] = for {
             gameId <- GenUUID[F].randomUUID.map(GameId.fromUUID)
             gm     <- lobby.gameSettings match {
-              case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, storeEvent)
+              case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, storeEvent, saveSnapshot)
               case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
             }
             _      <- pokerManagers.update { _.updated(gameId, gm) }
@@ -180,7 +183,7 @@ object PokerService {
             pokerManagers.get.flatMap(_.get(commandContext.gameId).traverse(_.handleCommand(commandContext.command))).map(_.getOrElse(()))
 
           override def storeEvent(event: PokerEvent, gameId: GameId): F[Unit] =
-            kafkaProducer.publishEvent(event, gameId)
+            kpEvents.publishEvent(event, gameId)
 
           def kafkaCommandTopicPipe: Pipe[F, PokerCommandContext, Unit] =
             _.evalTap { cmdCtx =>
@@ -189,6 +192,8 @@ object PokerService {
               info"Command sent to kafka: GameId=${cmdCtx.gameId.toString}, Command=${cmdCtx.command.toString}"
             }.map(_ => ())
 
+          override def saveSnapshot(game: PokerGame, gameId: GameId): F[Unit] =
+            kpSnapshots.publishEvent(game, gameId)
         }
         _             <- pokerService.runBackground
       } yield pokerService

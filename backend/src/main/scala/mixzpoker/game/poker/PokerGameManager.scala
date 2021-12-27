@@ -41,7 +41,8 @@ object PokerGameManager {
 
   def create[F[_]: Concurrent: Logging: Timer: GenUUID: GenRandom](
     gameId: GameId, settings: PokerSettings, players: List[Player],
-    storeEvent: (PokerEvent, GameId) => F[Unit]
+    storeEvent: (PokerEvent, GameId) => F[Unit],
+    saveSnapshot: (PokerGame, GameId) => F[Unit]
   ): F[PokerGameManager[F]] = {
     for {
       gameRef <- Ref.of[F, PokerGame](PokerGame.create(
@@ -195,7 +196,8 @@ object PokerGameManager {
             topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
               .flatTap(_ => Timer[F].sleep(3.seconds)) *>  //todo run in background
               topic.publish1(LogMessage("Next round has begun")) *>
-              topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
+              topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction)) *>
+              saveSnapshot(game, id)
 
           case CardsDealtEvent(_, _) => ???
           case FlopStartedEvent(card1, card2, card3, _) =>

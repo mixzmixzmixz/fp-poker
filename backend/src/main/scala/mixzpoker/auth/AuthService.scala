@@ -4,14 +4,13 @@ import cats.data.OptionT
 import cats.implicits._
 import cats.effect.{Concurrent, ContextShift, Resource, Sync}
 import cats.effect.concurrent.Ref
-import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log
 import fs2.Pipe
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.{Close, Text}
-import tofu.generate.{GenRandom, GenUUID}
+import tofu.generate.GenRandom
 import tofu.logging.Logging
-import tofu.syntax.logging._
+//import tofu.syntax.logging._
 
 import mixzpoker.domain.auth.{AuthError, AuthToken}
 import mixzpoker.domain.user.{User, UserName, UserPassword}
@@ -78,7 +77,7 @@ object AuthService {
 
   def ofRedis[F[_]: Concurrent: ContextShift: GenRandom: Logging: Log](
     userRepository: UserRepository[F],
-    uri: String = "redis://localhost:6380"
+    uri: String
   ): Resource[F, AuthService[F]] = for {
     repo <- AuthRepository.ofRedis(uri)
   } yield create(userRepository, repo)

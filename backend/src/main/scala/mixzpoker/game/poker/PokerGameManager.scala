@@ -2,7 +2,7 @@ package mixzpoker.game.poker
 
 import cats.effect.{Concurrent, Timer}
 import cats.effect.concurrent.Ref
-import cats.effect.syntax.all._
+//import cats.effect.syntax.all._
 import cats.implicits._
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -13,12 +13,12 @@ import io.circe.syntax._
 import scala.concurrent.duration._
 import org.http4s.websocket.WebSocketFrame.Text
 
-import mixzpoker.domain.{AppError, Token}
+import mixzpoker.domain.Token
 import mixzpoker.domain.game.core.Deck
 import mixzpoker.domain.game.poker._
 import mixzpoker.domain.game.poker.PokerEvent._
 import mixzpoker.domain.game.poker.PokerOutputMessage._
-import mixzpoker.domain.game.{GameEventId, GameId}
+import mixzpoker.domain.game.GameId
 import mixzpoker.domain.lobby.Player
 import mixzpoker.domain.user.{User, UserId, UserName}
 import mixzpoker.domain.game.poker.PokerError._

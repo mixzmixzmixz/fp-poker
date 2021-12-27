@@ -39,3 +39,14 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
+
+#  backend:
+#    image: "mixzpokerbackend:0.0.1-SNAPSHOT"
+#    hostname: backend
+#    container_name: backend
+#    command: "-c \"sleep 10 && nc -v redis 6379\""
+#    depends_on:
+#      - redis
+#      - kafka
+#    ports:
+#      - "8080:8080"

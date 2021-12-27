@@ -1,7 +1,7 @@
 package mixzpoker.game.poker
 
 import cats.arrow.FunctionK
-import cats.data.{NonEmptySet => Nes}
+import cats.data.{NonEmptySet => Nes, NonEmptyList => Nel}
 import cats.effect.syntax.all._
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import cats.effect.concurrent.Ref
@@ -16,11 +16,11 @@ import io.circe.parser.decode
 import io.circe.syntax._
 import fs2.concurrent.Queue
 import fs2.{Pipe, Stream}
+import mixzpoker.Config
 import tofu.generate.{GenRandom, GenUUID}
 import tofu.logging.Logging
 import tofu.syntax.logging._
 import org.http4s.websocket.WebSocketFrame.Text
-
 import mixzpoker.game.GameRecord
 import mixzpoker.chat.ChatService
 import mixzpoker.domain.game.GameError._
@@ -83,7 +83,10 @@ object PokerService {
         groupId = Some(s"group-$topic"),
         autoOffsetReset = AutoOffsetReset.Latest,
         autoCommit = false,
-        common = CommonConfig(clientId = consumerUUUID.toString.some)
+        common = CommonConfig(
+          clientId = consumerUUUID.toString.some,
+          bootstrapServers = Nel.of(s"${Config.KAFKA_HOST}:9092")
+        )
       )
       val consumerOf  = ConsumerOf[F](executor, None).mapK(FunctionK.id, FunctionK.id)
 
@@ -94,7 +97,12 @@ object PokerService {
     }
 
     def producerOf(acks: Acks): Resource[F, Producer[F]] = {
-      val config = ProducerConfig.Default.copy(acks = acks)
+      val config = ProducerConfig.Default.copy(
+        acks = acks,
+        common = CommonConfig.Default.copy(
+          bootstrapServers = Nel.of(s"${Config.KAFKA_HOST}:9092")
+        )
+      )
       val producerOf = ProducerOf.apply(executor, None).mapK(FunctionK.id, FunctionK.id)
       producerOf(config).map(_.withLogging(Log.empty))  // todo do I need logs here? replace with tofu logs somehow?
     }
@@ -114,7 +122,7 @@ object PokerService {
       for {
         kpEvents      <- kpEventsRes
         kpSnapshots   <- kpSnapshotsRes
-        consumerCmds  <- consumerOf(topic, None, UUID.fromString("6eeb25b6-1008-469d-99ad-6de7642de597")) //todo to config
+        consumerCmds  <- consumerOf(topic, None, Config.KAFKA_CONSUMER_UUID)
         producerCmds  <- producerOf(Acks.One)
         _             <- consume(consumerCmds, commandQueue).background
         pokerService  =  new PokerService[F] {

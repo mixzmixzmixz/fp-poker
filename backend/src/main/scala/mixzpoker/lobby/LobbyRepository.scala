@@ -68,7 +68,7 @@ object LobbyRepository {
 
   //just a tiny replacement for SQL DB. Simple and Inefficient
   def ofRedis[F[_]: Concurrent: ContextShift: GenRandom: Logging: Log](
-    uri: String = "redis://localhost:6380"
+    uri: String
   ): Resource[F, LobbyRepository[F]] = for {
     redis <- Redis[F].utf8(uri).evalTap { redis =>
       redis.info.flatMap {

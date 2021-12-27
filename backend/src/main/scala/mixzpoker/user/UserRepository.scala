@@ -47,7 +47,7 @@ object UserRepository {
   }
 
   def ofRedis[F[_]: Concurrent: ContextShift: GenRandom: Logging: Log](
-    uri: String = "redis://localhost:6380"
+    uri: String
   ): Resource[F, UserRepository[F]] = for {
     redis <- Redis[F].utf8(uri).evalTap { redis =>
       redis.info.flatMap {

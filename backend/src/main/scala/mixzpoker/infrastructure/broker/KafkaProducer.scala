@@ -3,16 +3,18 @@ package mixzpoker.infrastructure.broker
 import cats.implicits._
 import cats.effect.syntax.all._
 import cats.arrow.FunctionK
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import tofu.logging.Logging
 import tofu.syntax.logging._
-
 import com.evolutiongaming.catshelper.{FromTry, Log, ToFuture, ToTry}
+import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.producer._
 import com.evolutiongaming.smetrics.MeasureDuration
 import fs2.concurrent.Queue
 import io.circe.syntax._
 import io.circe.Encoder
+import mixzpoker.Config
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
@@ -31,7 +33,12 @@ object KafkaProducer {
     implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
     def producerOf(acks: Acks): Resource[F, Producer[F]] = {
-      val config = ProducerConfig.Default.copy(acks = acks)
+      val config = ProducerConfig.Default.copy(
+        acks = acks,
+        common = CommonConfig.Default.copy(
+          bootstrapServers = Nel.of(s"${Config.KAFKA_HOST}:9092")
+        )
+      )
       val producerOf = ProducerOf.apply(executor, None).mapK(FunctionK.id, FunctionK.id)
       producerOf(config).map(_.withLogging(Log.empty))  // todo do I need logs here? replace with tofu logs somehow?
     }

@@ -5,7 +5,7 @@ import cats.effect.syntax.all._
 import cats.effect.{ConcurrentEffect, Timer, Resource}
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.server.{Router, Server}
+import org.http4s.server.Router
 import org.http4s.server.middleware.{CORS, CORSConfig}
 import tofu.logging.Logging
 import tofu.Delay

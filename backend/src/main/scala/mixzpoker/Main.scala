@@ -1,7 +1,6 @@
 package mixzpoker
 
 import cats.implicits._
-import cats.effect.syntax.all._
 import cats.effect.{Clock, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Timer}
 import com.evolutiongaming.catshelper.{FromTry, ToFuture, ToTry}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -62,9 +61,9 @@ object Main extends IOApp {
         pokerSrvRes  <- PokerService.of
       } yield
         for {
-          lobbyRepo    <- LobbyRepository.ofRedis()
-          userRepo     <- UserRepository.ofRedis()
-          authService  <- AuthService.ofRedis(userRepo)
+          lobbyRepo    <- LobbyRepository.ofRedis(Config.REDIS_URI)
+          userRepo     <- UserRepository.ofRedis(Config.REDIS_URI)
+          authService  <- AuthService.ofRedis(userRepo, Config.REDIS_URI)
           pokerService <- pokerSrvRes
           lobbyService <- pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
           server       <- HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)

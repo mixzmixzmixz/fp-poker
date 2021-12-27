@@ -21,9 +21,6 @@ object PokerInputMessage {
   final case class Raise(amount: Token) extends PokerInputMessage
   final case object AllIn extends PokerInputMessage
 
-  final case class NextState(state: PokerGameState) extends PokerInputMessage
-
-
   implicit val jDecoder: Decoder[Join] = deriveDecoder
   implicit val jEncoder: Encoder[Join] = deriveEncoder
 

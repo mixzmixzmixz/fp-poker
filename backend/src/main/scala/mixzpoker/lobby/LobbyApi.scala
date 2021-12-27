@@ -8,7 +8,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.{AuthedRoutes, HttpRoutes, Request, Response}
 import tofu.logging.Logging
-import tofu.syntax.logging._
+//import tofu.syntax.logging._
 
 import mixzpoker.auth.AuthService
 import mixzpoker.domain.lobby.{LobbyName, LobbyRequest}
@@ -77,9 +77,9 @@ class LobbyApi[F[_]: Sync: Logging](
   } yield resp
 
   private def createLobby(request: Request[F], user: User): F[Response[F]] = for {
-    req     <- request.decodeJson[LobbyRequest.CreateLobbyRequest]
-    created <- lobbyService.create(req.name, user, req.gameType)
-    resp    <- if (created) Created() else Conflict()
+    req   <- request.decodeJson[LobbyRequest.CreateLobbyRequest]
+    lobby <- lobbyService.create(req.name, user, req.gameType)
+    resp  <- if (lobby.isDefined) Created() else Conflict()
   } yield resp
 }
 

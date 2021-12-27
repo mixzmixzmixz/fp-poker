@@ -3,8 +3,6 @@ package mixzpoker.domain.user
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import mixzpoker.domain.Token
-import mixzpoker.domain.user.UserError._
-
 
 
 // todo tags?

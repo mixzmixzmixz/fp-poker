@@ -67,6 +67,7 @@ lazy val game_service = project
 lazy val backend = project
   .in(file("backend"))
   .enablePlugins(ArtifactoryPlugin)
+  .enablePlugins(JavaAppPackaging)
   .settings(
     name := "MixzPokerBackend",
     version := "0.0.1-SNAPSHOT",

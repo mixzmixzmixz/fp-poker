@@ -1,5 +1,13 @@
 version: '2'
 services:
+  redis:
+    image: "redis:alpine"
+    hostname: redis
+    container_name: redis
+    command: redis-server
+    ports:
+      - "6380:6379"
+
   zookeeper:
     image: confluentinc/cp-zookeeper:6.2.0
     hostname: zookeeper

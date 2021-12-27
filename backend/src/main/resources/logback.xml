@@ -26,4 +26,14 @@
     <logger name="org.http4s.server.middleware.CORS" level="warn"/>
     <logger name="org.http4s.server.blaze.WebSocketDecoder" level="info"/>
     <logger name="org.http4s.server.blaze.WSFrameAggregator" level="info"/>
+    <!-- limit spamming of `kafka` internals -->
+    <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="info"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.AbstractCoordinator" level="info"/>
+    <logger name="org.apache.kafka.clients.NetworkClient" level="info"/>
+    <logger name="org.apache.kafka.common.metrics.Metrics" level="info"/>
+    <logger name="org.apache.kafka.clients.producer.KafkaProducer" level="info"/>
+    <logger name="org.apache.kafka.clients.FetchSessionHandler" level="info"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.Fetcher" level="info"/>
+
+    <logger name="io.lettuce.core" level="info"/>
 </configuration>

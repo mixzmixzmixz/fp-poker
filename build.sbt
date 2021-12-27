@@ -89,6 +89,8 @@ lazy val backend = project
       "org.typelevel"   %% "cats-core"           % catsVersion,
       "org.typelevel"   %% "cats-effect"         % catsEffectVersion,
 
+      "dev.profunktor"  %% "redis4cats-effects"  % "0.14.0",
+
 
       "org.apache.kafka"    %  "kafka-clients"       % "2.7.1",
       "org.apache.kafka"    %  "kafka-streams"       % "2.7.1",

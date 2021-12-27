@@ -25,7 +25,7 @@ class AuthApi[F[_]: Concurrent: Logging: GenUUID](authService: AuthService[F]) {
     request
       .headers
       .get(CaseInsensitiveString("Authorization"))
-      .fold( "no such user".asLeft[User].pure[F] ) { h =>
+      .fold( "no auth token".asLeft[User].pure[F] ) { h =>
         authService.getAuthUser(h.value).map(_.toRight("no such user"))
       }
   })

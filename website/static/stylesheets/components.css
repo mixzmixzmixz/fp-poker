@@ -1,0 +1,233 @@
+.base-app-container {
+    height: 100%;
+    width: 100vw;
+    background: #E9C891;
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    box-sizing: border-box;
+    align-self: stretch !important;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.mixz-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: row;
+    box-sizing: border-box;
+    align-self: stretch !important;
+}
+
+.mixz-container-simple {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    height: auto;
+    width: auto;
+    box-sizing: border-box;
+    -webkit-user-drag: none;
+    white-space: pre;
+    margin: auto 0 10px 0 !important;
+    overflow: auto;
+    align-self: auto !important;
+    padding: 20px;
+
+}
+
+.mixz-auth-head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    color: #e4e4e4;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+
+.mixz-panel-auth {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-width: 50px;
+    min-height: 50px;
+    box-sizing: border-box;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    border-radius: 8px;
+    box-shadow: 0 0 15px 1px rgba(0,0,0,0.5);
+    background-color: #383b42;
+    background: linear-gradient(125deg, #3d4148, #30333a);
+    box-shadow: 0 0 15px 3px rgba(255,255,255,0.1);
+    width: 500px;
+    height: 600px;
+    overflow: hidden;
+}
+
+.logo {
+    -webkit-align-items: center;
+    align-items: center;
+    color: inherit;
+    display: -webkit-flex;
+    display: flex;
+    height: 3.75rem;
+    min-height: 3.75rem;
+    padding: 0 12px 0 0;
+    position: relative;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.mixz-left-panel {
+    margin-top: 0;
+    margin-left: 0;
+    display: flex;
+    flex-direction: column;
+    align-content: flex-start;
+    width: auto;
+    height: 100%;
+    background: #D06224;
+
+    border-right: 1px solid #d3d3d3;
+}
+
+.mixz-panel-text {
+    font-family: "Open Sauce One",sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    word-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    color: #fff;
+}
+
+.lobby-container {
+    display: flex;
+    flex-direction: column;
+    flex-flow: column;
+    height: 100%;
+    width: 100%;
+}
+
+.lobby-list-item {
+    padding-left: 10px;
+    border: none;
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgba(0, 0, 0, 0.12);
+    position: relative;
+}
+
+.lobby-heading-btns {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.lobby-heading-btn {
+    display: flex;
+    margin-right: 10px;
+    max-width: 150px;
+    min-width: 150px;
+}
+
+.lobby-heading {
+    display: flex;
+    padding: 20px;
+    position: relative;
+    flex-direction: row;
+    flex: 0 1 auto;
+    justify-content: space-around;
+
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: rgba(0, 0, 0, 0.12);
+}
+
+.lobby-heading-name {
+    display: flex;
+    color: #961296;
+    font-size: 36px;
+}
+
+.lobby-users {
+    float: right;
+}
+
+.lobby-main {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    border-right-width: 1px;
+    border-right-style: solid;
+    border-right-color: rgba(0, 0, 0, 0.12);
+}
+
+.lobby-game-area {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: flex-start;
+
+
+}
+
+.lobby-chat-area {
+    display: flex;
+    flex: 0 1 300px;
+    padding: 20px;
+    background: #E9C891;
+}
+
+.lobby-chat-area .chat-messages {
+    display: flex;
+    padding: 10px;
+}
+
+.lobby-chat-area .chat-buttons {
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.lobby-chat-area .chat-send-field {
+    padding: 20px;
+    width: 100%;
+}
+
+.lobby-chat-area .chat-send-btn {
+    display: flex;
+    justify-content: center;
+}
+
+.lobby-players {
+    width: auto;
+    min-width: 20%;
+}
+
+.lobby-player {
+    width: 100%;
+}
+
+h1 {
+    padding: 10px;
+    color: #961296;
+}
+
+.lobby-game-area-text-line {
+    padding: 10px;
+    margin: 0;
+}
+
+.lobby-game-area-text-line-invalid {
+     padding: 10px;
+     margin: 0;
+     color: #f63939;
+ }

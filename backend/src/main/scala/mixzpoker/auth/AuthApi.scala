@@ -39,6 +39,7 @@ class AuthApi[F[_]: Concurrent: Logging: GenUUID](authService: AuthService[F]) {
   def routes: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "auth" / "sign-in" => signIn(req)
     case req @ POST -> Root / "auth" / "sign-up" => signUp(req)
+    case req @ GET  -> Root / "hello" / name     => Ok(s"Hello, $name!")
   }
 
   def authedRoutes: AuthedRoutes[User, F] = AuthedRoutes.of {

@@ -122,7 +122,7 @@ object PokerService {
       for {
         kpEvents      <- kpEventsRes
         kpSnapshots   <- kpSnapshotsRes
-        consumerCmds  <- consumerOf(topic, None, Config.KAFKA_CONSUMER_UUID)
+        consumerCmds  <- consumerOf(topic, None, consumerUUID)
         producerCmds  <- producerOf(Acks.One)
         _             <- consume(consumerCmds, commandQueue).background
         pokerService  =  new PokerService[F] {

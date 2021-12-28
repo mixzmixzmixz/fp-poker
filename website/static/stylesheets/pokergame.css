@@ -1,0 +1,132 @@
+.poker-game-container {
+    display: flex;
+    flex-direction: row;
+    flex-flow: row;
+    height: 100%;
+    width: 100%;
+}
+
+.poker-game-main {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    box-sizing: border-box;
+    align-self: stretch !important;
+    justify-content: space-between;
+}
+
+.poker-game-top {
+    display: flex;
+    padding: 20px;
+    position: relative;
+    flex-direction: row;
+    flex: 0 1 auto;
+    justify-content: space-between;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: rgba(0, 0, 0, 0.12);
+
+    align-items: center;
+}
+
+.poker-game-heading {
+    display: flex;
+    color: #D06224;
+}
+
+.poker-game-controls {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+}
+
+.poker-game-heading-btn {
+    display: flex;
+}
+
+.poker-game-mid {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.poker-game-bot {
+    display: flex;
+    flex: 0 1 200px;
+    padding: 20px;
+    background: #E9C891;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.poker-game-player-actions {
+    display: flex;
+    flex-direction: column;
+}
+
+.poker-game-player-actions .bot-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+
+}
+
+.poker-game-player-actions .top-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+.poker-game-player-actions .bet-text {
+    width: 30%;
+}
+
+.poker-game-player-actions .bet-slide {
+    width: 40%;
+}
+
+.poker-game-play-area {
+    display: flex;
+    padding: 20px;
+    position: relative;
+    flex: 0 1 auto;
+}
+
+.poker-chat-area {
+    display: flex;
+    background: #E9C891;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.poker-chat-area .chat-messages {
+    display: flex;
+    padding: 10px;
+    height: auto;
+
+}
+
+.poker-chat-area .chat-buttons {
+    padding: 10px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.poker-chat-area .chat-send-field {
+    padding: 20px;
+    width: 100%;
+}
+
+.poker-chat-area .chat-send-btn {
+    display: flex;
+    justify-content: center;
+}

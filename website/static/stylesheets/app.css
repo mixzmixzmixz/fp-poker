@@ -1,0 +1,61 @@
+
+html {
+    display: flex;
+    color: text;
+}
+
+body {
+    height: 100vh;
+    width: 100vw;
+    margin: 0px;
+    font-size: 8pt;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Roboto', sans-serif;
+    line-height: 1.4em;
+    background: #E9C891;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-weight: 300;
+
+    color: #1f2022;
+    font-family: "Open Sauce One",sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    word-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    --mdc-theme-primary: #AE431E;
+    --mdc-theme-on-primary: #E9C891;
+}
+
+mwc-list {
+    --mdc-list-vertical-padding: 0px;
+    --mdc-theme-primary: blue;
+    --mdc-list-inset-margin: 0px;
+    --mdc-theme-text-primary-on-background: #b71c1c;
+    max-width: 400px;
+    margin-bottom: 8px;
+    width: auto;
+}
+
+mdc-text-field__input {
+    background: #D06224;
+}
+
+
+div {
+}
+
+.root-cls {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: stretch;
+}
+
+mwc-top-app-bar-fixed {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}

@@ -47,7 +47,7 @@ object PokerPlayer {
       seat = seat,
       tokens = buyIn,
       hand = Hand.empty,
-      state = PokerPlayerState.Joined
+      state = PokerPlayerState.Folded
     )
 
 

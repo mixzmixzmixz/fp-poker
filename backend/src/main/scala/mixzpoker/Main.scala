@@ -24,30 +24,30 @@ object Main extends IOApp {
   }
 
 
-  def makeInMemory[
-    F[_]: ConcurrentEffect: Timer: Delay: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration
-  ]: F[ExitCode] = {
-    implicit val makeLogging: Logging.Make[F] = Logging.Make.plain[F]
-    implicit val logging: Logging[F] = makeLogging.byName("MainLog")
-
-
-    val server = GenRandom.instance[F, F]().flatMap { implicit genRandom =>
-      for {
-        userRepo     <- UserRepository.inMemory
-        lobbyRepo    <- LobbyRepository.inMemory
-        authService  <- AuthService.inMemory(userRepo)
-        pokerSrvRes  <- PokerService.of
-        lobbySrvRes  =  pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
-      } yield
-        for {
-          pokerService <- pokerSrvRes
-          lobbyService <- lobbySrvRes
-          server       <- HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)
-        } yield server
-    }
-
-    server.flatMap { srv => srv.use( _ => ConcurrentEffect[F].never[Unit] as ExitCode.Success)}
-  }
+//  def makeInMemory[
+//    F[_]: ConcurrentEffect: Timer: Delay: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration
+//  ]: F[ExitCode] = {
+//    implicit val makeLogging: Logging.Make[F] = Logging.Make.plain[F]
+//    implicit val logging: Logging[F] = makeLogging.byName("MainLog")
+//
+//
+//    val server = GenRandom.instance[F, F]().flatMap { implicit genRandom =>
+//      for {
+//        userRepo     <- UserRepository.inMemory
+//        lobbyRepo    <- LobbyRepository.inMemory
+//        authService  <- AuthService.inMemory(userRepo)
+//        pokerSrvRes  <- PokerService.of
+//        lobbySrvRes  =  pokerSrvRes.evalMap(ps => LobbyService.create(lobbyRepo, ps)).flatten
+//      } yield
+//        for {
+//          pokerService <- pokerSrvRes
+//          lobbyService <- lobbySrvRes
+//          server       <- HttpServer.make(userRepo, lobbyRepo, authService, lobbyService, pokerService)
+//        } yield server
+//    }
+//
+//    server.flatMap { srv => srv.use( _ => ConcurrentEffect[F].never[Unit] as ExitCode.Success)}
+//  }
 
   def makeLive[
     F[_]: ConcurrentEffect: Timer: Delay: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration

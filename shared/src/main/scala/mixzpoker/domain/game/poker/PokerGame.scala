@@ -102,6 +102,7 @@ final case class PokerGame(
     case Turn       => if (activePlayers.size > 1) River else RoundEnd
     case River      => RoundEnd
     case RoundEnd   => RoundStart
+    case GameEnd    => GameEnd
   }
 
   def flop(card1: Card, card2: Card, card3: Card, newDeck: Deck): PokerGame =
@@ -216,6 +217,16 @@ final case class PokerGame(
       winnersMoney = List.empty,
       showdown = None
     ).dealCards()
+
+  def finishes(): PokerGame =
+    copy(
+      state = GameEnd,
+      board = List.empty,
+      pot = Pot.empty(playerIds = Nil),
+      players = Map.empty,
+      winnersMoney = List.empty,
+      showdown = None
+    )
 }
 
 object PokerGame {

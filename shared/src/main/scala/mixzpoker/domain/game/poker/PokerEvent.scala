@@ -14,7 +14,7 @@ object PokerEvent {
   @JsonCodec
   final case class PlayerJoinedEvent(userId: UserId, buyIn: Token, name: UserName) extends PokerEvent
   @JsonCodec
-  final case class PlayerLeftEvent(userId: UserId) extends PokerEvent
+  final case class PlayerLeftEvent(userId: UserId, name: UserName, tokens: Token) extends PokerEvent
 
   @JsonCodec
   final case class PlayerFoldedEvent(userId: UserId) extends PokerEvent
@@ -39,6 +39,8 @@ object PokerEvent {
   final case class RiverStartedEvent(card: Card, deck: Deck) extends PokerEvent
 
   final case object RoundFinishedEvent extends PokerEvent
+
+  final case object GameFinishedEvent extends PokerEvent
 
 
   implicit val keyDecoderUserId: KeyDecoder[UserId] = (key: String) => UserId.fromString(key)
@@ -65,6 +67,7 @@ object PokerEvent {
     case "TurnStartedEvent"     => c.downField("params").as[TurnStartedEvent]
     case "RiverStartedEvent"    => c.downField("params").as[RiverStartedEvent]
     case "RoundFinishedEvent"   => Right(RoundFinishedEvent)
+    case "GameFinishedEvent"    => Right(GameFinishedEvent)
 
     case _                      => Left(DecodingFailure("Invalid message type", List()))
   }
@@ -85,5 +88,6 @@ object PokerEvent {
     case a: TurnStartedEvent     => Json.obj("type" -> "TurnStartedEvent".asJson,     "params" -> a.asJson)
     case a: RiverStartedEvent    => Json.obj("type" -> "RiverStartedEvent".asJson,    "params" -> a.asJson)
     case RoundFinishedEvent      => Json.obj("type" -> "RoundFinishedEvent".asJson)
+    case GameFinishedEvent       => Json.obj("type" -> "GameFinishedEvent".asJson)
   }
 }

@@ -26,7 +26,7 @@ object LobbiesPage {
             List()
           },
           resp => resp.data
-        ))
+        )).map(_.filter(_.gameId.isEmpty))
 
     def createLobbyRequest(name: LobbyName, gametype: GameType)(implicit appContext: Var[AppContext]): EventStream[String] =
       Fetch.post(
@@ -118,11 +118,6 @@ object LobbiesPage {
         _.`label` := "New Lobby",
         _.slots.icon(span("🍉")),
         _ => onClick --> { _ => isOpen.set(true)}
-      ),
-      Button(
-        _.`raised` := true,
-        _.`label` := "RAKETA",
-        _.slots.icon(span("🚀"))
       )
     )
   }

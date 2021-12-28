@@ -5,6 +5,7 @@ import cats.effect.{Concurrent, ContextShift, Resource, Sync}
 import cats.effect.concurrent.Ref
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log
+import mixzpoker.domain.Token
 import tofu.generate.GenRandom
 import tofu.logging.Logging
 import tofu.syntax.logging._
@@ -16,6 +17,7 @@ trait UserRepository[F[_]] {
   def create(name: UserName, password: UserPassword): F[Either[UserError, User]]
   def get(name: UserName): F[Option[User]]
   def save(user: User): F[Unit]
+  def changeMoney(user: User, delta: Token): F[Boolean]
   def checkPassword(password: UserPassword, name: UserName): F[Option[Boolean]]
 }
 
@@ -44,6 +46,8 @@ object UserRepository {
     override def checkPassword(password: UserPassword, name: UserName): F[Option[Boolean]] =
       get(name).map(_.map(_.password == password))
 
+    override def changeMoney(user: User, delta: Token): F[Boolean] =
+      store.update { _.updated(user.name, user.copy(amount = user.amount + delta)) } as true
   }
 
   def ofRedis[F[_]: Concurrent: ContextShift: GenRandom: Logging: Log](
@@ -94,6 +98,8 @@ object UserRepository {
     def usersKey(name: UserName): String =
       s"table#users#${name.toString}"
 
+    override def changeMoney(user: User, delta: Token): F[Boolean] =
+      save(user.copy(amount = user.amount + delta)) as true
   }
 
 }

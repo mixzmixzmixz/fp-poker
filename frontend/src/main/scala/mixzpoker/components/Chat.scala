@@ -55,7 +55,7 @@ object Chat {
           _.messages.map {
             case (Some(user), msg) => s"${user.name}: $msg"
             case (None, msg)       => s"Log: $msg"
-          }.reverse.mkString("\n")
+          }.mkString("\n")
         ),
         _.`disabled` := true,
         _.`rows` := 8, _.`cols` := 130

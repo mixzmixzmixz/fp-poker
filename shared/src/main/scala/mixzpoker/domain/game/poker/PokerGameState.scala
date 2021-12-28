@@ -10,6 +10,7 @@ object PokerGameState {
   final case object Turn extends PokerGameState
   final case object River extends PokerGameState
   final case object RoundEnd extends PokerGameState
+  final case object GameEnd extends PokerGameState
 
   implicit val pgsEncoder: Encoder[PokerGameState] = Encoder[String].contramap {
     case RoundStart => "RoundStart"
@@ -17,6 +18,7 @@ object PokerGameState {
     case Turn       => "Turn"
     case River      => "River"
     case RoundEnd   => "RoundEnd"
+    case GameEnd    => "RoundEnd"
   }
 
   implicit val pgsDecoder: Decoder[PokerGameState] = Decoder[String].emap {
@@ -25,6 +27,7 @@ object PokerGameState {
     case "Turn"       => Right(Turn)
     case "River"      => Right(River)
     case "RoundEnd"   => Right(RoundEnd)
+    case "GameEnd"    => Right(GameEnd)
     case _            => Left("wrong PokerGameState")
   }
 }

@@ -42,7 +42,8 @@ object PokerGameManager {
   def create[F[_]: Concurrent: Logging: Timer: GenUUID: GenRandom](
     gameId: GameId, settings: PokerSettings, players: List[Player],
     storeEvent: (PokerEvent, GameId) => F[Unit],
-    saveSnapshot: (PokerGame, GameId) => F[Unit]
+    saveSnapshot: (PokerGame, GameId) => F[Unit],
+    changeMoney: (UserName, Token) => F[Unit]
   ): F[PokerGameManager[F]] = {
     for {
       gameRef <- Ref.of[F, PokerGame](PokerGame.create(
@@ -90,11 +91,15 @@ object PokerGameManager {
 
         //todo update user's balance here?
         def handleLeaveCommand(userId: UserId): F[Unit] =
-          gameRef.get.map(_.players.contains(userId)).ifM(
-            publishEvent(PlayerFoldedEvent(userId)) *>
-              publishEvent(PlayerLeftEvent(userId)) as (),
-            ().pure[F]
-          )
+          gameRef.get.map(_.players.get(userId)).flatMap {
+            case Some(p) =>
+              publishEvent(PlayerFoldedEvent(userId)) *>
+              publishEvent(PlayerLeftEvent(userId, p.name, p.tokens)) as ()
+            case None =>
+              ().pure[F]
+          }
+
+
 
         def handleFoldCommand(userId: UserId): F[Unit] =
           gameRef.get.map(_.canPlayerFold(userId)).ifM(
@@ -143,7 +148,7 @@ object PokerGameManager {
 
         def processEvent(event: PokerEvent)(game: PokerGame): PokerGame = event match {
           case PlayerJoinedEvent(userId, buyIn, name) => game.playerJoin(userId, buyIn, name).getOrElse(game)
-          case PlayerLeftEvent(userId)                => game.playerLeave(userId)
+          case PlayerLeftEvent(userId, name, tokens)  => game.playerLeave(userId)
           case PlayerFoldedEvent(userId)              => game.playerFolds(userId).getOrElse(game)
           case PlayerCheckedEvent(userId)             => game.playerChecks(userId).getOrElse(game)
           case PlayerCalledEvent(userId)              => game.playerCalls(userId).getOrElse(game)
@@ -156,16 +161,18 @@ object PokerGameManager {
           case TurnStartedEvent(card, deck)                => game.turn(card, deck)
           case RiverStartedEvent(card, deck)               => game.river(card, deck)
           case RoundFinishedEvent                          => game.roundEnds()
+          case GameFinishedEvent                           => game.finishes()
         }
 
         // performs some actions after event
         def afterEvent(event: PokerEvent, game: PokerGame): F[Unit] = event match {
           case PlayerJoinedEvent(userId, buyIn, name) =>
-            topic.publish1(LogMessage(s"Player $name has joined the table with $buyIn tokens! Keep an eye on your money!"))
+            changeMoney(name, -buyIn) *>
+            topic.publish1(LogMessage(s"Player $name has joined the table with $buyIn tokens! Keep an eye on your delta!"))
 
-          case PlayerLeftEvent(userId) =>
-            val name = game.players.get(userId).map(_.name.toString).getOrElse("")
-            topic.publish1(LogMessage(s"Player $name has left the table! Hope they have something left in their pockets!"))
+          case PlayerLeftEvent(userId, name, tokens) =>
+            changeMoney(name, tokens) *>
+            topic.publish1(LogMessage(s"Player ${name.toString} has left the table! Hope they have something left in their pockets!"))
 
           case PlayerFoldedEvent(userId) =>
             val name = game.players.get(userId).map(_.name.toString).getOrElse("")
@@ -193,11 +200,16 @@ object PokerGameManager {
               topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction))
 
           case NewRoundStartedEvent(_) =>
-            topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 5s"))
-              .flatTap(_ => Timer[F].sleep(3.seconds)) *>  //todo run in background
-              topic.publish1(LogMessage("Next round has begun")) *>
-              topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction)) *>
-              saveSnapshot(game, id)
+            // if we can play -> play, else -> everybody leaves and we are done
+            if (game.players.values.filter(_.tokens > 1).toList.nonEmpty)
+              topic.publish1(PokerOutputMessage.LogMessage("Next round begins in 2s")) *>
+                Timer[F].sleep(2.seconds) *>  //todo run in background
+                topic.publish1(LogMessage("Next round has begun")) *>
+                topic.publish1(PlayerToAction(game.playerToAct.userId, secondsForAction)) *>
+                saveSnapshot(game, id)
+            else
+              onPlayersCantPlayAnymore(game.players.values.toList) *>
+              publishEvent(GameFinishedEvent) as ()
 
           case CardsDealtEvent(_, _) => ???
           case FlopStartedEvent(card1, card2, card3, _) =>
@@ -216,6 +228,7 @@ object PokerGameManager {
             val winnersStr = game.winnersMoney.map { case (p, m) => s"${p.name} -> $m" }.mkString(", ")
             topic.publish1(LogMessage(if (game.showdown.isDefined) "Showdown!" else "No Showdown!")) *>
               topic.publish1(LogMessage(s"Winners: $winnersStr")) *>
+              onPlayersCantPlayAnymore(game.players.values.filter(_.tokens <= 0).toList) *>
               GenRandom
                 .nextLong
                 .map(Deck.shuffledOf52)
@@ -223,8 +236,12 @@ object PokerGameManager {
                 .flatMap(publishEvent)
                 .as(())
 
-
+          case PokerEvent.GameFinishedEvent =>
+            topic.publish1(LogMessage("Game is Finished!"))
         }
+
+        def onPlayersCantPlayAnymore(players: List[PokerPlayer]): F[Unit] =
+          players.traverse { p => publishEvent(PlayerLeftEvent(p.userId, p.name, p.tokens)) } as ()
 
         def onRoundFinished(game: PokerGame): F[Unit] = {
           //if round is fnished publish event about next round

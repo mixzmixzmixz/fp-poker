@@ -177,20 +177,7 @@ object LobbyPage {
     div(child <-- $lobby, width("100%"))
   }
 
-  def controlButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
-    div(
-      Button(
-        _.`raised` := true,
-        _.slots.icon(span("🚀")),
-        _.`label` := "Button 1"
-      ),
-      Button(
-        _.`raised` := true,
-        _.slots.icon(span("🚀")),
-        _.`label` := "Button 2"
-      )
-    )
-  }
+  def controlButtons()(implicit appContext: Var[AppContext]): HtmlElement = div()
 
   def Users(lobby: Lobby): HtmlElement = {
     if (lobby.players.isEmpty)

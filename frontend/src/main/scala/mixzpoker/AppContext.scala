@@ -5,6 +5,7 @@ import io.laminext.syntax.core.{StoredString, storedString}
 import mixzpoker.AppContext.noUser
 import mixzpoker.domain.user.User
 import AppState._
+import mixzpoker.domain.Token
 
 
 final case class AppContext(
@@ -22,6 +23,9 @@ final case class AppContext(
     storedAuthToken.set("")
     copy(state = Unauthorized, user = noUser, token = "")
   }
+
+  def giveMoney(money: Token): AppContext =
+    copy(user = user.copy(amount = user.amount + money))
 }
 
 object AppContext {

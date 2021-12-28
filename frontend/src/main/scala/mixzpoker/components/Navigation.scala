@@ -22,20 +22,22 @@ object Navigation {
   }
 
   def DefaultTopButtons()(implicit appContext: Var[AppContext]): HtmlElement = {
-    div(
-      Button(
-        _.`raised` := true,
-        _.styles.buttonOutlineColor := "#6200ed",
-        _.slots.icon(span("🚀")),
-        _.`label` := "DefButton1"
-      ),
-      Button(
-        _.`raised` := true,
-        _.styles.buttonOutlineColor := "#6200ed",
-        _.slots.icon(span("🚀")),
-        _.`label` := "RAKETA"
-      )
-    )
+//    div(
+//      Button(
+//        _.`raised` := true,
+//        _.styles.buttonOutlineColor := "#6200ed",
+//        _.slots.icon(span("🚀")),
+//        _.`label` := "DefButton1"
+//      ),
+//      Button(
+//        _.`raised` := true,
+//        _.styles.buttonOutlineColor := "#6200ed",
+//        _.slots.icon(span("🚀")),
+//        _.`label` := "RAKETA"
+//      )
+//    )
+
+    div()
   }
 
 }

@@ -1,7 +1,7 @@
 package mixzpoker.game.poker
 
 import cats.arrow.FunctionK
-import cats.data.{NonEmptySet => Nes, NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.syntax.all._
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import cats.effect.concurrent.Ref
@@ -21,17 +21,23 @@ import tofu.generate.{GenRandom, GenUUID}
 import tofu.logging.Logging
 import tofu.syntax.logging._
 import org.http4s.websocket.WebSocketFrame.Text
+import dev.profunktor.redis4cats.effect.Log.Stdout._
+
 import mixzpoker.game.GameRecord
 import mixzpoker.chat.ChatService
+import mixzpoker.domain.Token
 import mixzpoker.domain.game.GameError._
 import mixzpoker.domain.game.poker.{PokerEvent, PokerGame, PokerInputMessage, PokerSettings}
 import mixzpoker.domain.game.{GameId, Topics}
 import mixzpoker.domain.lobby.Lobby
-import mixzpoker.domain.user.User
+import mixzpoker.domain.lobby.LobbyError.NoSuchUser
+import mixzpoker.domain.user.{User, UserId, UserName}
 import mixzpoker.game.poker.PokerCommand._
 import mixzpoker.infrastructure.broker.KafkaProducer
+import mixzpoker.user.UserRepository
 
 import java.util.UUID
+import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.concurrent.duration._
 
@@ -47,6 +53,8 @@ trait PokerService[F[_]] {
   def chatPipes(gameId: GameId): F[Option[(Stream[F, Text], Pipe[F, (Option[User], String), Unit])]]
   def fromClientPipe(gameId: GameId): Pipe[F, (Option[User], String), Unit]
   def toClient(gameId: GameId, userRef: Ref[F, Option[User]]): F[Option[Stream[F, Text]]]
+
+  def playerChangeMoney(userName: UserName, delta: Token): F[Unit]
 }
 
 object PokerService {
@@ -54,7 +62,8 @@ object PokerService {
     F[_]: ConcurrentEffect: Logging: Timer: GenUUID: GenRandom: ContextShift: ToTry: ToFuture: FromTry: MeasureDuration
   ]: F[Resource[F, PokerService[F]]] = {
 
-    implicit val executor: ExecutionContextExecutor = ExecutionContext.global
+    implicit val executor: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
+//    implicit val executor: ExecutionContextExecutor = Blocking.fromExecutionContext()
     val topic = Topics.pokerTexasHoldemCommands
 
     //todo tailrec? do we need to care about it in ce?
@@ -120,6 +129,8 @@ object PokerService {
       consumerUUID  <- GenUUID[F].randomUUID
     } yield {
       for {
+        // todo so I should not have a userRepo init here, it was done in a rush before demo
+        userRepo      <- UserRepository.ofRedis(Config.REDIS_URI)
         kpEvents      <- kpEventsRes
         kpSnapshots   <- kpSnapshotsRes
         consumerCmds  <- consumerOf(topic, None, consumerUUID)
@@ -145,7 +156,7 @@ object PokerService {
           override def createGame(lobby: Lobby): F[GameId] = for {
             gameId <- GenUUID[F].randomUUID.map(GameId.fromUUID)
             gm     <- lobby.gameSettings match {
-              case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, storeEvent, saveSnapshot)
+              case ps: PokerSettings => PokerGameManager.create(gameId, ps, lobby.players, storeEvent, saveSnapshot, changeMoney = playerChangeMoney)
               case _                 => ConcurrentEffect[F].raiseError(WrongSettingsType)
             }
             _      <- pokerManagers.update { _.updated(gameId, gm) }
@@ -202,6 +213,12 @@ object PokerService {
 
           override def saveSnapshot(game: PokerGame, gameId: GameId): F[Unit] =
             kpSnapshots.publishEvent(game, gameId)
+
+          override def playerChangeMoney(username: UserName, delta: Token): F[Unit] = {
+            userRepo.get(username).flatMap(_.toRight(NoSuchUser).liftTo[F]).flatMap { user =>
+              userRepo.changeMoney(user, delta)
+            } as ()
+          }
         }
         _             <- pokerService.runBackground
       } yield pokerService
